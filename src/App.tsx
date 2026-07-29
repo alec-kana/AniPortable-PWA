@@ -51,20 +51,25 @@ function AppContent() {
   return (
     <div className="min-h-screen flex flex-col">
       <div
-        className="flex items-center justify-between pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-4 px-5 bg-gradient-to-b from-[#242538] to-[#12162a]"
+        className="flex items-end justify-between pt-[calc(env(safe-area-inset-top)+1.25rem)] px-5 bg-gradient-to-b from-[#242538] to-[#12162a]"
       >
-        <div className="flex items-center space-x-3">
+        <div className="flex items-end space-x-3 min-w-0 flex-1 pr-3">
           {user.avatar?.medium && (
-            <img src={user.avatar.medium} alt="Avatar" className="w-11 h-11 rounded-full" />
+            <img src={user.avatar.medium} alt="Avatar" className="w-14 h-14 rounded-sm object-cover shrink-0" />
           )}
-          {user.name && <p className="text-white font-bold tracking-wide text-sm">{user.name}</p>}
+          {user.name && (
+            // mb-3 only on the text, not the avatar — the avatar should
+            // still touch the bottom edge, but the text sitting right on
+            // that same line reads as cramped, so it gets its own gap.
+            <p className="text-white font-bold tracking-wide text-sm break-words min-w-0 leading-none mb-3">{user.name}</p>
+          )}
         </div>
 
         <a
           href="https://anilist.co"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-white flex items-center space-x-1.5 group transition-colors duration-200"
+          className="text-white flex items-center space-x-1.5 group transition-colors duration-200 shrink-0 whitespace-nowrap mb-3"
           style={{ '--profile-color': profileColor } as React.CSSProperties}
         >
           <span className="text-sm font-medium">AniList</span>

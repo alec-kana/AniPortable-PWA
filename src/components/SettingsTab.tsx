@@ -82,7 +82,6 @@ export const SettingsTab: React.FC = () => {
     tabVisibility,
     showAnimeStats,
     showMangaStats,
-    cardDensity,
     setProfileColor,
     setTitleLanguage,
     setDisplayAdultContent,
@@ -93,7 +92,6 @@ export const SettingsTab: React.FC = () => {
     setTabVisibility,
     setShowAnimeStats,
     setShowMangaStats,
-    setCardDensity,
     loading,
     error
   } = useSettings()
@@ -182,10 +180,6 @@ export const SettingsTab: React.FC = () => {
     setTabVisibility(visibility as 'both' | 'anime' | 'manga')
   }
 
-  const handleCardDensityChange = async (density: string) => {
-    setCardDensity(density as 'large' | 'compact' | 'list')
-  }
-
   if (error)
     return (
       <StateMessage
@@ -197,7 +191,7 @@ export const SettingsTab: React.FC = () => {
   if (loading) return <StateMessage icon={Loader2} spin message="Loading settings..." />
 
   return (
-    <div className="p-4 space-y-5 flex-1">
+    <div className="px-5 py-4 space-y-5 flex-1">
       {/* Profile Color */}
       <div>
         <h3 className="text-sm font-medium mb-2 text-gray">Profile Color</h3>
@@ -221,22 +215,6 @@ export const SettingsTab: React.FC = () => {
             </button>
           ))}
         </div>
-      </div>
-
-      {/* Card Display */}
-      <div>
-        <h3 className="text-sm font-medium mb-2 text-gray">Card Display</h3>
-        <CustomToggle
-          options={[
-            { label: "Large", value: "large" },
-            { label: "Compact", value: "compact" },
-            { label: "List", value: "list" }
-          ]}
-          value={cardDensity}
-          onChange={handleCardDensityChange}
-          profileColor={profileColor}
-          className="w-full"
-        />
       </div>
 
       {/* Score Format */}

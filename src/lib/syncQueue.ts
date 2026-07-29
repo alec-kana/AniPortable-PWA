@@ -13,6 +13,34 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null
 const pendingUpdates = new Map<number, PendingUpdate>()
 let initialized = false
 
+// How many card overlays are currently open. While this is > 0 the flush
+// timer is paused entirely (not just extended) — otherwise sitting on an
+// open card for a few seconds without touching the wheel would still flush
+// mid-adjustment. Cleared to schedule fresh once the last card closes.
+let openCardCount = 0
+
+function armOrPauseFlushTimer(): void {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
+  if (openCardCount === 0 && pendingUpdates.size > 0) {
+    debounceTimer = setTimeout(() => {
+      flushAllPendingUpdates()
+    }, FLUSH_DEBOUNCE_MS)
+  }
+}
+
+export function notifyCardOpened(): void {
+  openCardCount++
+  armOrPauseFlushTimer()
+}
+
+export function notifyCardClosed(): void {
+  openCardCount = Math.max(0, openCardCount - 1)
+  armOrPauseFlushTimer()
+}
+
 async function persistPendingUpdates(): Promise<void> {
   await Storage.set(Storage.DATA.PENDING_UPDATES, Array.from(pendingUpdates.entries()))
 }
@@ -57,13 +85,7 @@ export async function queueUpdate(payload: { entryId: number } & PendingUpdate):
     ...(status !== undefined && { status })
   })
   await persistPendingUpdates()
-
-  if (debounceTimer) {
-    clearTimeout(debounceTimer)
-  }
-  debounceTimer = setTimeout(() => {
-    flushAllPendingUpdates()
-  }, FLUSH_DEBOUNCE_MS)
+  armOrPauseFlushTimer()
 }
 
 async function restorePendingUpdates(): Promise<void> {

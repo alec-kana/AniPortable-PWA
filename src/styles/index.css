@@ -9,3 +9,13 @@ html, body, #root {
 body {
   overscroll-behavior-y: contain;
 }
+
+/* Used by NumberWheel — scrollable, but the scrollbar itself would be
+   visual noise on what's meant to read as a picker, not a scroll area. */
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Edge/IE */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}

@@ -1,8 +1,9 @@
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { Check } from "lucide-react"
 import { MediaCardOverlay } from "./MediaCardOverlay"
+import { notifyCardOpened, notifyCardClosed } from "../lib/syncQueue"
 import type { MediaEntry } from "../lib/types"
 
 type Props = {
@@ -34,6 +35,14 @@ export const MediaCard: React.FC<Props> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const layoutId = `media-card-${entry.id}`
+
+  // Pause the sync debounce while this card's overlay is open, so an idle
+  // pause mid-adjustment can't trigger a flush while still editing.
+  useEffect(() => {
+    if (!isOpen) return
+    notifyCardOpened()
+    return () => notifyCardClosed()
+  }, [isOpen])
 
   if (entry.isAdult && !displayAdultContent) {
     return null
@@ -79,7 +88,7 @@ export const MediaCard: React.FC<Props> = ({
                 {entry.progress}
                 {entry.totalUnits && `/${entry.totalUnits}`}
               </span>
-              <span>{entry.score > 0 ? entry.score : "–"}</span>
+              {entry.score > 0 && <span>{entry.score}</span>}
             </div>
           </div>
         </motion.div>

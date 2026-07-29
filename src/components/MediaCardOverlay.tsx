@@ -32,6 +32,14 @@ export const MediaCardOverlay: React.FC<Props> = ({
   const maxProgress = entry.totalUnits ?? maxProgressFallback
   const showCompletionButton = entry.totalUnits !== null && entry.progress >= entry.totalUnits
 
+  // For an airing show, nextAiringEpisode is the episode about to release —
+  // so nextAiringEpisode - 1 is the latest one actually watchable. Caps how
+  // far the progress wheel can be scrolled without hiding the still-visible
+  // total episode count (see NumberWheel's maxSelectable).
+  const latestReleasedEpisode = entry.nextAiringEpisode !== null ? entry.nextAiringEpisode - 1 : null
+  const progressMaxSelectable =
+    latestReleasedEpisode !== null ? Math.min(latestReleasedEpisode, maxProgress) : undefined
+
   return (
     <motion.div
       className="fixed inset-0 z-50 flex items-center justify-center p-6"
@@ -50,7 +58,7 @@ export const MediaCardOverlay: React.FC<Props> = ({
       <motion.div
         layoutId={layoutId}
         onClick={(e) => e.stopPropagation()}
-        className="relative z-10 w-full max-w-[300px] aspect-[3/4] overflow-hidden rounded-xl shadow-2xl"
+        className="relative z-10 w-full max-w-[300px] sm:max-w-[380px] md:max-w-[460px] lg:max-w-[560px] xl:max-w-[640px] max-h-[85vh] aspect-[3/4] overflow-hidden rounded-xl shadow-2xl"
         style={{
           backgroundImage: `url(${entry.cover})`,
           backgroundSize: "cover",
@@ -85,6 +93,7 @@ export const MediaCardOverlay: React.FC<Props> = ({
                 value={entry.progress}
                 min={0}
                 max={maxProgress}
+                maxSelectable={progressMaxSelectable}
                 step={1}
                 onChange={onProgressChange}
                 color={profileColor}

@@ -2,6 +2,7 @@ import React, { useEffect } from "react"
 import { useQuery, gql } from "@apollo/client"
 import { MediaCard } from "./MediaCard"
 import { MediaListRow } from "./MediaListRow"
+import { DensitySwitcher } from "./DensitySwitcher"
 import { StateMessage } from "./StateMessage"
 import { useSettings } from "../contexts/SettingsContext"
 import { useAniListData } from "../contexts/AniListDataContext"
@@ -38,6 +39,7 @@ const WATCHING_LIST_QUERY = gql`
               episode
             }
             coverImage {
+              extraLarge
               large
             }
             episodes
@@ -62,7 +64,8 @@ export const AnimeTab: React.FC = () => {
     rowOrder,
     manualCompletion,
     separateEntries,
-    cardDensity
+    animeCardDensity,
+    setAnimeCardDensity
   } = useSettings()
 
   const {
@@ -99,7 +102,7 @@ export const AnimeTab: React.FC = () => {
   const transformedAnime: AnimeListEntry[] = watchingList.map((entry: any) => ({
     id: entry.id,
     title: entry.media.title[titleLanguage.toLowerCase()],
-    cover: entry.media.coverImage.large,
+    cover: entry.media.coverImage.extraLarge ?? entry.media.coverImage.large,
     progress: entry.progress,
     score: entry.score || 0,
     nextAiringEpisode: entry.media.nextAiringEpisode?.episode || null,
@@ -188,13 +191,18 @@ export const AnimeTab: React.FC = () => {
     queueUpdate({ entryId: anime.id, status: "COMPLETED" })
   }
 
-  const renderAnimeGrid = (list: AnimeListEntry[], title: string) => (
+  const renderAnimeGrid = (list: AnimeListEntry[], title: string, showSwitcher = false) => (
     <div className="mb-6">
-      <h3 className="text-lg text-gray font-medium mb-2">
-        {title} ({list.length})
-      </h3>
-      {cardDensity === "list" ? (
-        <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-lg text-gray font-medium">
+          {title} ({list.length})
+        </h3>
+        {showSwitcher && (
+          <DensitySwitcher value={animeCardDensity} onChange={setAnimeCardDensity} profileColor={profileColor} />
+        )}
+      </div>
+      {animeCardDensity === "list" || animeCardDensity === "compact" ? (
+        <div className={`flex flex-col ${animeCardDensity === "compact" ? "gap-1" : "gap-2"}`}>
           {list.map((anime) => (
             <MediaListRow
               key={anime.id}
@@ -205,14 +213,17 @@ export const AnimeTab: React.FC = () => {
               onProgressChange={(progress) => handleProgressChange(anime, progress)}
               onScoreChange={(score) => handleScoreChange(anime, score)}
               onMarkCompleted={() => handleMarkCompleted(anime)}
+              showImage={animeCardDensity === "list"}
             />
           ))}
         </div>
       ) : (
-        <div
-          className={cardDensity === "large" ? "grid grid-cols-2 gap-3" : "grid gap-2"}
-          style={cardDensity === "compact" ? { gridTemplateColumns: "repeat(auto-fill, minmax(88px, 1fr))" } : undefined}
-        >
+        // Fixed column counts (not auto-fit) so a row with fewer cards than
+        // the count doesn't stretch them to fill the row — each card stays
+        // its normal size instead. lg:6 anchors to a 1024px viewport (iPad
+        // Pro), stepped out both directions so every breakpoint from the
+        // smallest phone up to a wide desktop gets a whole number of cards.
+        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2">
           {list.map((anime) => (
             <MediaCard
               key={anime.id}
@@ -235,7 +246,7 @@ export const AnimeTab: React.FC = () => {
     : sortedAnime.length === 0
 
   return (
-    <div className="p-4 flex-1 flex flex-col">
+    <div className="px-5 py-4 flex-1 flex flex-col">
       {isEmpty ? (
         <StateMessage
           icon={Tv}
@@ -246,17 +257,17 @@ export const AnimeTab: React.FC = () => {
         <>
           {behindAnime.length > 0 && caughtUpAnime.length > 0 ? (
             <>
-              {renderAnimeGrid(behindAnime, "Behind")}
+              {renderAnimeGrid(behindAnime, "Behind", true)}
               {renderAnimeGrid(caughtUpAnime, "Caught-Up")}
             </>
           ) : behindAnime.length > 0 ? (
-            renderAnimeGrid(behindAnime, "Behind")
+            renderAnimeGrid(behindAnime, "Behind", true)
           ) : (
-            renderAnimeGrid(caughtUpAnime, "Caught-Up")
+            renderAnimeGrid(caughtUpAnime, "Caught-Up", true)
           )}
         </>
       ) : (
-        renderAnimeGrid(sortedAnime, "Watching")
+        renderAnimeGrid(sortedAnime, "Watching", true)
       )}
     </div>
   )
