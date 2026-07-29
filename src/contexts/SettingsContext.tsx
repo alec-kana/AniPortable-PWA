@@ -26,10 +26,6 @@ const SETTINGS_QUERY = gql`
   }
 `
 
-// 'list' = rows with a cover thumbnail, 'compact' = same rows without one
-// (shorter, denser), 'grid' = the card grid.
-export type CardDensity = 'grid' | 'list' | 'compact'
-
 interface SettingsContextType {
   profileColor: string
   titleLanguage: string
@@ -41,11 +37,6 @@ interface SettingsContextType {
   tabVisibility: 'both' | 'anime' | 'manga'
   showAnimeStats: boolean
   showMangaStats: boolean
-  // Anime and manga each remember their own display density independently
-  // — switching one doesn't affect the other, and hiding a tab via
-  // tabVisibility doesn't reset or lose its density setting.
-  animeCardDensity: CardDensity
-  mangaCardDensity: CardDensity
   setProfileColor: (color: string) => void
   setTitleLanguage: (language: string) => void
   setDisplayAdultContent: (display: boolean) => void
@@ -56,8 +47,6 @@ interface SettingsContextType {
   setTabVisibility: (visibility: 'both' | 'anime' | 'manga') => void
   setShowAnimeStats: (show: boolean) => void
   setShowMangaStats: (show: boolean) => void
-  setAnimeCardDensity: (density: CardDensity) => void
-  setMangaCardDensity: (density: CardDensity) => void
   loading: boolean
   error: ApolloError | undefined
 }
@@ -89,8 +78,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [tabVisibility, setTabVisibilityState] = useState<'both' | 'anime' | 'manga'>('both')
   const [showAnimeStats, setShowAnimeStatsState] = useState<boolean>(true)
   const [showMangaStats, setShowMangaStatsState] = useState<boolean>(true)
-  const [animeCardDensity, setAnimeCardDensityState] = useState<CardDensity>('list')
-  const [mangaCardDensity, setMangaCardDensityState] = useState<CardDensity>('list')
 
   // Get user ID first
   const { data: viewerData, error: viewerError } = useQuery(VIEWER_QUERY)
@@ -124,17 +111,13 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       Storage.get<boolean>('separateEntries'),
       Storage.get<'both' | 'anime' | 'manga'>('tabVisibility'),
       Storage.get<boolean>('showAnimeStats'),
-      Storage.get<boolean>('showMangaStats'),
-      Storage.get<CardDensity>('animeCardDensity'),
-      Storage.get<CardDensity>('mangaCardDensity')
-    ]).then(([manual, separate, visibility, showAnime, showManga, animeDensity, mangaDensity]) => {
+      Storage.get<boolean>('showMangaStats')
+    ]).then(([manual, separate, visibility, showAnime, showManga]) => {
       setManualCompletionState(manual ?? false)
       setSeparateEntriesState(separate ?? false)
       setTabVisibilityState(visibility ?? 'both')
       setShowAnimeStatsState(showAnime ?? true)
       setShowMangaStatsState(showManga ?? true)
-      setAnimeCardDensityState(animeDensity ?? 'list')
-      setMangaCardDensityState(mangaDensity ?? 'list')
     })
   }, [])
 
@@ -182,14 +165,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     setShowMangaStatsState(show)
     Storage.set('showMangaStats', show)
   }
-  const setAnimeCardDensity = async (density: CardDensity) => {
-    setAnimeCardDensityState(density)
-    Storage.set('animeCardDensity', density)
-  }
-  const setMangaCardDensity = async (density: CardDensity) => {
-    setMangaCardDensityState(density)
-    Storage.set('mangaCardDensity', density)
-  }
 
   return (
     <SettingsContext.Provider value={{
@@ -203,8 +178,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       tabVisibility,
       showAnimeStats,
       showMangaStats,
-      animeCardDensity,
-      mangaCardDensity,
       setProfileColor,
       setTitleLanguage,
       setDisplayAdultContent,
@@ -215,8 +188,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       setTabVisibility,
       setShowAnimeStats,
       setShowMangaStats,
-      setAnimeCardDensity,
-      setMangaCardDensity,
       loading,
       error
     }}>

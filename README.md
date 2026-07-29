@@ -9,7 +9,6 @@ AniPortable PWA brings the extension's core idea — tracking and updating your 
 ## Features
 
 - **Tap-to-edit cards** — tap a card to zoom into a focused view with scroll-snap pickers for progress and score; tap outside to close. Updates are debounced and batched into a single API call, even across rapid edits or bulk mark-as-completed taps
-- **Three display densities** — Grid (cards), List (rows with cover art), and Compact (denser, text-only rows) — switchable per Anime/Manga tab from an inline control, remembered independently for each
 - **Release-aware progress picker** — for a currently-airing show, the progress wheel still shows the full episode count but won't let you scroll past the latest episode that's actually aired
 - **Dynamic lists** — split Watching lists into **Behind** and **Caught-Up**, so you always know what needs attention
 - **Visual stats** — anime and manga stats as bar charts, with year/season filters for anime

@@ -1,8 +1,6 @@
 import React, { useEffect } from "react"
 import { useQuery, gql } from "@apollo/client"
 import { MediaCard } from "./MediaCard"
-import { MediaListRow } from "./MediaListRow"
-import { DensitySwitcher } from "./DensitySwitcher"
 import { StateMessage } from "./StateMessage"
 import { useSettings } from "../contexts/SettingsContext"
 import { useAniListData } from "../contexts/AniListDataContext"
@@ -63,9 +61,7 @@ export const AnimeTab: React.FC = () => {
     scoreFormat,
     rowOrder,
     manualCompletion,
-    separateEntries,
-    animeCardDensity,
-    setAnimeCardDensity
+    separateEntries
   } = useSettings()
 
   const {
@@ -191,53 +187,32 @@ export const AnimeTab: React.FC = () => {
     queueUpdate({ entryId: anime.id, status: "COMPLETED" })
   }
 
-  const renderAnimeGrid = (list: AnimeListEntry[], title: string, showSwitcher = false) => (
+  const renderAnimeGrid = (list: AnimeListEntry[], title: string) => (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-lg text-gray font-medium">
           {title} ({list.length})
         </h3>
-        {showSwitcher && (
-          <DensitySwitcher value={animeCardDensity} onChange={setAnimeCardDensity} profileColor={profileColor} />
-        )}
       </div>
-      {animeCardDensity === "list" || animeCardDensity === "compact" ? (
-        <div className={`flex flex-col ${animeCardDensity === "compact" ? "gap-1" : "gap-2"}`}>
-          {list.map((anime) => (
-            <MediaListRow
-              key={anime.id}
-              entry={anime}
-              profileColor={profileColor}
-              scoreFormat={scoreFormat}
-              displayAdultContent={displayAdultContent}
-              onProgressChange={(progress) => handleProgressChange(anime, progress)}
-              onScoreChange={(score) => handleScoreChange(anime, score)}
-              onMarkCompleted={() => handleMarkCompleted(anime)}
-              showImage={animeCardDensity === "list"}
-            />
-          ))}
-        </div>
-      ) : (
-        // Fixed column counts (not auto-fit) so a row with fewer cards than
-        // the count doesn't stretch them to fill the row — each card stays
-        // its normal size instead. lg:6 anchors to a 1024px viewport (iPad
-        // Pro), stepped out both directions so every breakpoint from the
-        // smallest phone up to a wide desktop gets a whole number of cards.
-        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2">
-          {list.map((anime) => (
-            <MediaCard
-              key={anime.id}
-              entry={anime}
-              profileColor={profileColor}
-              scoreFormat={scoreFormat}
-              displayAdultContent={displayAdultContent}
-              onProgressChange={(progress) => handleProgressChange(anime, progress)}
-              onScoreChange={(score) => handleScoreChange(anime, score)}
-              onMarkCompleted={() => handleMarkCompleted(anime)}
-            />
-          ))}
-        </div>
-      )}
+      {/* Fixed column counts (not auto-fit) so a row with fewer cards than
+          the count doesn't stretch them to fill the row — each card stays
+          its normal size instead. lg:6 anchors to a 1024px viewport (iPad
+          Pro), stepped out both directions so every breakpoint from the
+          smallest phone up to a wide desktop gets a whole number of cards. */}
+      <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2">
+        {list.map((anime) => (
+          <MediaCard
+            key={anime.id}
+            entry={anime}
+            profileColor={profileColor}
+            scoreFormat={scoreFormat}
+            displayAdultContent={displayAdultContent}
+            onProgressChange={(progress) => handleProgressChange(anime, progress)}
+            onScoreChange={(score) => handleScoreChange(anime, score)}
+            onMarkCompleted={() => handleMarkCompleted(anime)}
+          />
+        ))}
+      </div>
     </div>
   )
 
@@ -257,17 +232,17 @@ export const AnimeTab: React.FC = () => {
         <>
           {behindAnime.length > 0 && caughtUpAnime.length > 0 ? (
             <>
-              {renderAnimeGrid(behindAnime, "Behind", true)}
+              {renderAnimeGrid(behindAnime, "Behind")}
               {renderAnimeGrid(caughtUpAnime, "Caught-Up")}
             </>
           ) : behindAnime.length > 0 ? (
-            renderAnimeGrid(behindAnime, "Behind", true)
+            renderAnimeGrid(behindAnime, "Behind")
           ) : (
-            renderAnimeGrid(caughtUpAnime, "Caught-Up", true)
+            renderAnimeGrid(caughtUpAnime, "Caught-Up")
           )}
         </>
       ) : (
-        renderAnimeGrid(sortedAnime, "Watching", true)
+        renderAnimeGrid(sortedAnime, "Watching")
       )}
     </div>
   )

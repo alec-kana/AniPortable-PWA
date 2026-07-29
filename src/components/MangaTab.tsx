@@ -1,8 +1,6 @@
 import React, { useEffect } from "react"
 import { useQuery, gql } from "@apollo/client"
 import { MediaCard } from "./MediaCard"
-import { MediaListRow } from "./MediaListRow"
-import { DensitySwitcher } from "./DensitySwitcher"
 import { StateMessage } from "./StateMessage"
 import { useSettings } from "../contexts/SettingsContext"
 import { useAniListData } from "../contexts/AniListDataContext"
@@ -60,9 +58,7 @@ export const MangaTab: React.FC = () => {
     scoreFormat,
     rowOrder,
     manualCompletion,
-    separateEntries,
-    mangaCardDensity,
-    setMangaCardDensity
+    separateEntries
   } = useSettings()
 
   const {
@@ -181,48 +177,27 @@ export const MangaTab: React.FC = () => {
     queueUpdate({ entryId: manga.id, status: "COMPLETED" })
   }
 
-  const renderMangaGrid = (list: MediaEntry[], title: string, showSwitcher = false) => (
+  const renderMangaGrid = (list: MediaEntry[], title: string) => (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-lg text-gray font-medium">
           {title} ({list.length})
         </h3>
-        {showSwitcher && (
-          <DensitySwitcher value={mangaCardDensity} onChange={setMangaCardDensity} profileColor={profileColor} />
-        )}
       </div>
-      {mangaCardDensity === "list" || mangaCardDensity === "compact" ? (
-        <div className={`flex flex-col ${mangaCardDensity === "compact" ? "gap-1" : "gap-2"}`}>
-          {list.map((manga) => (
-            <MediaListRow
-              key={manga.id}
-              entry={manga}
-              profileColor={profileColor}
-              scoreFormat={scoreFormat}
-              displayAdultContent={displayAdultContent}
-              onProgressChange={(progress) => handleProgressChange(manga, progress)}
-              onScoreChange={(score) => handleScoreChange(manga, score)}
-              onMarkCompleted={() => handleMarkCompleted(manga)}
-              showImage={mangaCardDensity === "list"}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2">
-          {list.map((manga) => (
-            <MediaCard
-              key={manga.id}
-              entry={manga}
-              profileColor={profileColor}
-              scoreFormat={scoreFormat}
-              displayAdultContent={displayAdultContent}
-              onProgressChange={(progress) => handleProgressChange(manga, progress)}
-              onScoreChange={(score) => handleScoreChange(manga, score)}
-              onMarkCompleted={() => handleMarkCompleted(manga)}
-            />
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2">
+        {list.map((manga) => (
+          <MediaCard
+            key={manga.id}
+            entry={manga}
+            profileColor={profileColor}
+            scoreFormat={scoreFormat}
+            displayAdultContent={displayAdultContent}
+            onProgressChange={(progress) => handleProgressChange(manga, progress)}
+            onScoreChange={(score) => handleScoreChange(manga, score)}
+            onMarkCompleted={() => handleMarkCompleted(manga)}
+          />
+        ))}
+      </div>
     </div>
   )
 
@@ -242,17 +217,17 @@ export const MangaTab: React.FC = () => {
         <>
           {readingManga.length > 0 && completedManga.length > 0 ? (
             <>
-              {renderMangaGrid(readingManga, "Reading", true)}
+              {renderMangaGrid(readingManga, "Reading")}
               {renderMangaGrid(completedManga, "Completed")}
             </>
           ) : readingManga.length > 0 ? (
-            renderMangaGrid(readingManga, "Reading", true)
+            renderMangaGrid(readingManga, "Reading")
           ) : (
-            renderMangaGrid(completedManga, "Completed", true)
+            renderMangaGrid(completedManga, "Completed")
           )}
         </>
       ) : (
-        renderMangaGrid(sortedManga, "Reading", true)
+        renderMangaGrid(sortedManga, "Reading")
       )}
     </div>
   )
