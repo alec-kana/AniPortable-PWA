@@ -147,7 +147,9 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
     const live = sorted.find((entry) => entry.id === entryId)
     if (!live) return false
 
-    if ((config.isCaughtUp(live) ? "caughtUp" : "behind") !== category) return true
+    // Category only decides placement while the sections are split; with one combined grid
+    // becoming caught up moves nothing.
+    if (separateEntries && (config.isCaughtUp(live) ? "caughtUp" : "behind") !== category) return true
 
     // Compared within the grid the card is rendered in, not across the combined list:
     // when the sections are split, jumping over entries of the other category changes the
