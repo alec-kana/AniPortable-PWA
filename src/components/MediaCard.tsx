@@ -30,6 +30,7 @@ export const MediaCard: React.FC<Props> = ({
   positionWillChange = false
 }) => {
   const [isOpen, setIsOpen] = useState(false)
+  const [morphing, setMorphing] = useState(false)
   const layoutId = `media-card-${entry.id}`
   const isPresent = useIsPresent()
 
@@ -53,6 +54,12 @@ export const MediaCard: React.FC<Props> = ({
     return () => notifyCardClosed()
   }, [isOpen])
 
+  // Layout animation is only wanted while this card morphs to/from its overlay; outside that
+  // it would also animate the card across a list reorder, which should be instant.
+  useEffect(() => {
+    if (isOpen) setMorphing(true)
+  }, [isOpen])
+
   if (entry.isAdult && !displayAdultContent) {
     return null
   }
@@ -67,6 +74,8 @@ export const MediaCard: React.FC<Props> = ({
       ) : (
         <motion.div
           layoutId={layoutId}
+          transition={morphing && !positionWillChange ? undefined : { layout: { duration: 0 } }}
+          onLayoutAnimationComplete={() => setMorphing(false)}
           onClick={() => isPresent && setIsOpen(true)}
           className="relative w-full aspect-[3/4] overflow-hidden rounded-lg shadow-md cursor-pointer"
           style={{

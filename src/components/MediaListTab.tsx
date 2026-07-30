@@ -55,6 +55,19 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
   const [exitingId, setExitingId] = useState<OpenEntryState | null>(null)
   const exitTimeoutRef = useRef<number | null>(null)
 
+  // The only card allowed to animate into place. It expires on its own so a card touched
+  // earlier can never still hold the privilege when the next update reshuffles the list.
+  const [animatingTargetId, setAnimatingTargetId] = useState<number | null>(null)
+  const targetTimeoutRef = useRef<number | null>(null)
+
+  const markAnimatingTarget = (entryId: number) => {
+    setAnimatingTargetId(entryId)
+    if (targetTimeoutRef.current !== null) {
+      window.clearTimeout(targetTimeoutRef.current)
+    }
+    targetTimeoutRef.current = window.setTimeout(() => setAnimatingTargetId(null), 500)
+  }
+
   const { data: viewerData, loading: viewerLoading, error: viewerError } = useQuery(VIEWER_QUERY)
   const userId = viewerData?.Viewer?.id
 
@@ -68,6 +81,10 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
       if (exitTimeoutRef.current !== null) {
         window.clearTimeout(exitTimeoutRef.current)
         exitTimeoutRef.current = null
+      }
+      if (targetTimeoutRef.current !== null) {
+        window.clearTimeout(targetTimeoutRef.current)
+        targetTimeoutRef.current = null
       }
     }
   }, [])
@@ -155,6 +172,10 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
   }, [separateEntries, visible, categoryOf])
 
   const handleOpenChange = (entryId: number, isOpen: boolean) => {
+    // Re-armed on both edges: the list only reshuffles on close, so the timer has to be
+    // running from that moment, not from whenever the overlay happened to open.
+    markAnimatingTarget(entryId)
+
     if (isOpen) {
       setOpenEntry((prev) => {
         if (prev?.id === entryId) return prev
@@ -207,6 +228,7 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
   }
 
   const handleProgressChange = (entry: MediaEntry, newProgress: number) => {
+    markAnimatingTarget(entry.id)
     const clampedProgress = Math.min(Math.max(0, newProgress), entry.totalUnits || 9999)
     const finished = entry.totalUnits && clampedProgress >= entry.totalUnits
 
@@ -225,11 +247,13 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
   }
 
   const handleScoreChange = (entry: MediaEntry, score: number) => {
+    markAnimatingTarget(entry.id)
     updateLocalList(entry.id, { score })
     queueUpdate({ entryId: entry.id, score })
   }
 
   const handleMarkCompleted = (entry: MediaEntry) => {
+    markAnimatingTarget(entry.id)
     removeFromLocalList(entry.id)
     markDirty(config.statsKey)
     queueUpdate({ entryId: entry.id, status: "COMPLETED" })
@@ -251,21 +275,26 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
           <AnimatePresence mode="popLayout" initial={false} onExitComplete={clearExiting}>
             {list.map((entry) => {
               const willMove = openEntry?.id === entry.id && openEntryPositionWillChange
+              const isTarget = entry.id === animatingTargetId
 
               return (
                 <motion.div
                   key={entry.id}
-                  initial={{ opacity: 0, y: -50, zIndex: 10 }}
-                  animate={{
-                    opacity: 1,
-                    y: 0,
-                    zIndex: 10,
-                    transition: {
-                      opacity: { duration: 0.15, ease: "easeOut" },
-                      y: { duration: 0.25, ease: "easeOut", delay: 0.15 },
-                      zIndex: { duration: 0 }
-                    }
-                  }}
+                  initial={isTarget ? { opacity: 0, y: -50, zIndex: 10 } : false}
+                  animate={
+                    isTarget
+                      ? {
+                          opacity: 1,
+                          y: 0,
+                          zIndex: 10,
+                          transition: {
+                            opacity: { duration: 0.15, ease: "easeOut" },
+                            y: { duration: 0.25, ease: "easeOut", delay: 0.15 },
+                            zIndex: { duration: 0 }
+                          }
+                        }
+                      : { opacity: 1, y: 0, zIndex: 10, transition: { duration: 0 } }
+                  }
                   exit={{
                     opacity: 0,
                     y: -24,
