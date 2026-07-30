@@ -132,8 +132,9 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
           return a.title.localeCompare(b.title)
         case "updatedAt":
           return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        // "Last Added" — entry ids increase over time, so newest first.
         default:
-          return a.id - b.id
+          return b.id - a.id
       }
     })
   }, [filtered, rowOrder])
