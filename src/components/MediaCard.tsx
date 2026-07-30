@@ -55,10 +55,13 @@ export const MediaCard: React.FC<Props> = ({
   }, [isOpen])
 
   // Layout animation is only wanted while this card morphs to/from its overlay; outside that
-  // it would also animate the card across a list reorder, which should be instant.
+  // it would also animate the card across a list reorder, which should be instant. Once the
+  // card is known to be moving there is no morph back to protect, and leaving the window open
+  // would let it slide to its new slot on re-entry instead.
   useEffect(() => {
-    if (isOpen) setMorphing(true)
-  }, [isOpen])
+    if (positionWillChange) setMorphing(false)
+    else if (isOpen) setMorphing(true)
+  }, [isOpen, positionWillChange])
 
   if (entry.isAdult && !displayAdultContent) {
     return null

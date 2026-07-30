@@ -261,8 +261,6 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
 
   const renderGrid = (list: MediaEntry[], title: string, category: Category | null) => {
     const hasVisibleContent = list.length > 0 || exitingId?.category === category
-    const clearExiting = () =>
-      setExitingId((cur) => (cur && (category === null || cur.category === category) ? null : cur))
 
     return (
       <div className={hasVisibleContent ? "mb-6" : "hidden"}>
@@ -272,7 +270,7 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
           </h3>
         </div>
         <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2">
-          <AnimatePresence mode="popLayout" initial={false} onExitComplete={clearExiting}>
+          <AnimatePresence mode="popLayout" initial={false}>
             {list.map((entry) => {
               const willMove = openEntry?.id === entry.id && openEntryPositionWillChange
               const isTarget = entry.id === animatingTargetId
@@ -297,7 +295,7 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
                   }
                   exit={{
                     opacity: 0,
-                    y: -24,
+                    y: -36,
                     transition: { duration: willMove ? 0.2 : 0.18, ease: "easeIn" }
                   }}
                   transition={{ duration: 0 }}
