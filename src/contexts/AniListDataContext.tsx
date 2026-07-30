@@ -1,4 +1,5 @@
-import React, { createContext, useState, useContext, useCallback } from "react"
+import React, { createContext, useState, useContext, useCallback, useEffect } from "react"
+import { setEntriesSyncedHandler } from "../lib/syncQueue"
 
 export type ListKey = "anime" | "manga" | "animeStats" | "mangaStats"
 
@@ -28,6 +29,37 @@ export const AniListDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const setList = useCallback((key: ListKey, data: any[]) => {
     setLists((prev) => ({ ...prev, [key]: data }))
+  }, [])
+
+  // Edits stamp a predicted updatedAt locally so a "Last Updated" ordering reacts straight
+  // away; once the queue flushes, the authoritative stamp replaces it.
+  useEffect(() => {
+    setEntriesSyncedHandler((synced) => {
+      const stampById = new Map(synced.map((entry) => [entry.id, entry.updatedAt]))
+
+      setLists((prev) => {
+        let next = prev
+
+        for (const key of ["anime", "manga"] as const) {
+          const list = prev[key]
+          if (!list) continue
+
+          let listChanged = false
+          const patched = list.map((entry) => {
+            const updatedAt = stampById.get(entry.id)
+            if (updatedAt === undefined || entry.updatedAt === updatedAt) return entry
+            listChanged = true
+            return { ...entry, updatedAt }
+          })
+
+          if (listChanged) next = { ...next, [key]: patched }
+        }
+
+        return next
+      })
+    })
+
+    return () => setEntriesSyncedHandler(null)
   }, [])
 
   // Empties the cached list too, so a stale render can't flash old entries

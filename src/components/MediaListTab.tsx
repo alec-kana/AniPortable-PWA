@@ -239,7 +239,11 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
     if (cachedList) {
       setList(
         config.listKey,
-        cachedList.map((entry) => (entry.id === entryId ? { ...entry, ...updates } : entry))
+        cachedList.map((entry) =>
+          // AniList stamps updatedAt on every edit, so predict it rather than refetch to find
+          // out — without it a "Last Updated" ordering stays stale until the next page load.
+          entry.id === entryId ? { ...entry, ...updates, updatedAt: Math.floor(Date.now() / 1000) } : entry
+        )
       )
     }
   }

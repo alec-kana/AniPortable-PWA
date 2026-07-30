@@ -36,7 +36,9 @@ export async function saveBulkEntries(token: string, entries: Map<number, Pendin
     if (data.progress !== undefined) args.push(`progress: ${data.progress}`)
     if (data.score !== undefined) args.push(`score: ${data.score}`)
     if (data.status !== undefined) args.push(`status: ${data.status}`)
-    return `m${id}: SaveMediaListEntry(${args.join(", ")}) { id }`
+    // updatedAt comes back so the locally predicted stamp can be replaced with the
+    // authoritative one without a second request.
+    return `m${id}: SaveMediaListEntry(${args.join(", ")}) { id updatedAt }`
   })
 
   return request(token, `mutation { ${mutations.join("\n")} }`)

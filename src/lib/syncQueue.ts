@@ -7,6 +7,15 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null
 const pendingUpdates = new Map<number, PendingUpdate>()
 let initialized = false
 
+export type SyncedEntry = { id: number; updatedAt: number }
+
+// Lets the list cache replace its predicted updatedAt with the value the mutation returned.
+let onEntriesSynced: ((entries: SyncedEntry[]) => void) | null = null
+
+export function setEntriesSyncedHandler(handler: ((entries: SyncedEntry[]) => void) | null): void {
+  onEntriesSynced = handler
+}
+
 // While a card overlay is open the flush timer is paused entirely, not just
 // extended — otherwise sitting on an open card would flush mid-adjustment.
 let openCardCount = 0
@@ -50,8 +59,16 @@ export async function flushAllPendingUpdates(): Promise<void> {
   pendingUpdates.clear()
 
   try {
-    await saveBulkEntries(token, updatesToFlush)
+    const result = await saveBulkEntries(token, updatesToFlush)
     remove("pendingUpdates")
+
+    // Only entries the server actually echoed back — a partially failed mutation leaves the
+    // rest on their predicted stamp rather than inventing one.
+    const synced = Object.values(result?.data ?? {}).filter(
+      (entry): entry is SyncedEntry =>
+        !!entry && typeof (entry as SyncedEntry).id === "number" && typeof (entry as SyncedEntry).updatedAt === "number"
+    )
+    if (synced.length > 0) onEntriesSynced?.(synced)
   } catch (error) {
     console.error("[syncQueue] Failed to flush updates, will retry later:", error)
     // Re-queue, letting edits that arrived during the failed request win.
