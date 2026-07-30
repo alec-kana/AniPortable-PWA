@@ -116,8 +116,8 @@ export const SettingsTab: React.FC = () => {
   const [updateScoreFormat] = useMutation(UPDATE_SCORE_FORMAT)
   const [updateRowOrder] = useMutation(UPDATE_ROW_ORDER)
 
-  // These two settings change what the API returns, so every cached list has
-  // to be refetched rather than just re-rendered.
+  // Score format changes what the API returns — `score` comes back scaled to it — so every
+  // cached list has to be refetched rather than just re-rendered.
   const refetchAllLists = () => ALL_LIST_KEYS.forEach((key) => markDirty(key))
 
   const handleColorChange = async (color: string) => {
@@ -138,11 +138,12 @@ export const SettingsTab: React.FC = () => {
     }
   }
 
+  // No refetch: the lists already carry adult entries whatever this is set to, and every
+  // consumer filters on isAdult, so toggling is a re-render.
   const handleAdultContentChange = async (checked: boolean) => {
     setDisplayAdultContent(checked)
     try {
       await updateDisplayAdultContent({ variables: { displayAdultContent: checked } })
-      refetchAllLists()
     } catch (error) {
       console.error('Failed to update adult content setting:', error)
     }
