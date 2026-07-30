@@ -91,37 +91,47 @@ export const StatsTab: React.FC = () => {
   const { data: viewerData, loading: viewerLoading, error: viewerError } = useQuery(VIEWER_QUERY)
   const userId = viewerData?.Viewer?.id
 
-  const { loading: animeLoading, error: animeError, refetch: refetchAnime } = useQuery(COMPLETED_ANIME_QUERY, {
-    variables: { userId },
-    skip: !userId
-  })
+  const { data: animeData, loading: animeLoading, error: animeError, refetch: refetchAnime } = useQuery(
+    COMPLETED_ANIME_QUERY,
+    { variables: { userId }, skip: !userId }
+  )
 
-  const { loading: mangaLoading, error: mangaError, refetch: refetchManga } = useQuery(COMPLETED_MANGA_QUERY, {
-    variables: { userId },
-    skip: !userId
-  })
+  const { data: mangaData, loading: mangaLoading, error: mangaError, refetch: refetchManga } = useQuery(
+    COMPLETED_MANGA_QUERY,
+    { variables: { userId }, skip: !userId }
+  )
 
   // Flattens every status list (CURRENT, COMPLETED, ...) into one array and
   // keeps only scored entries, which are all the charts care about.
-  const cacheScoredEntries = (key: ListKey, refetch: () => Promise<any>) => {
-    refetch().then((res) => {
-      const entries = (res.data?.MediaListCollection?.lists ?? []).flatMap((list: any) => list.entries ?? [])
-      setList(key, entries.filter((entry: any) => entry.score > 0))
-      clearDirty(key)
-    })
+  const cacheScoredEntries = (key: ListKey, payload: any) => {
+    const entries = (payload?.MediaListCollection?.lists ?? []).flatMap((list: any) => list.entries ?? [])
+    setList(key, entries.filter((entry: any) => entry.score > 0))
+  }
+
+  // Same as the list tabs: the hook's own fetch covers a cold load, so only a dirty flag
+  // needs a request of its own.
+  const syncStats = (key: ListKey, isDirty: boolean, data: any, refetch: () => Promise<any>) => {
+    if (isDirty) {
+      refetch().then((res) => {
+        cacheScoredEntries(key, res.data)
+        clearDirty(key)
+      })
+    } else if (data) {
+      cacheScoredEntries(key, data)
+    }
   }
 
   useEffect(() => {
     if (!userId) return
     if (lists.animeStats && !dirty.animeStats) return
-    cacheScoredEntries("animeStats", refetchAnime)
-  }, [userId, dirty.animeStats])
+    syncStats("animeStats", dirty.animeStats, animeData, refetchAnime)
+  }, [userId, dirty.animeStats, animeData])
 
   useEffect(() => {
     if (!userId) return
     if (lists.mangaStats && !dirty.mangaStats) return
-    cacheScoredEntries("mangaStats", refetchManga)
-  }, [userId, dirty.mangaStats])
+    syncStats("mangaStats", dirty.mangaStats, mangaData, refetchManga)
+  }, [userId, dirty.mangaStats, mangaData])
 
   const animeEntries = lists.animeStats ?? []
   const mangaEntries = lists.mangaStats ?? []

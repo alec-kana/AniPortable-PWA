@@ -94,15 +94,21 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
     }
   }, [])
 
+  // The hook already fetches on a cold load, so only a dirty flag is worth a second trip —
+  // refetching unconditionally here meant two requests for the same document on first open.
   useEffect(() => {
     if (!userId) return
     if (cachedList && !isDirty) return
 
-    refetch().then((res) => {
-      setList(config.listKey, res.data?.MediaListCollection?.lists?.[0]?.entries ?? [])
-      clearDirty(config.listKey)
-    })
-  }, [userId, isDirty, refetch, setList, clearDirty, config.listKey])
+    if (isDirty) {
+      refetch().then((res) => {
+        setList(config.listKey, res.data?.MediaListCollection?.lists?.[0]?.entries ?? [])
+        clearDirty(config.listKey)
+      })
+    } else if (data) {
+      setList(config.listKey, data.MediaListCollection?.lists?.[0]?.entries ?? [])
+    }
+  }, [userId, isDirty, data, refetch, setList, clearDirty, config.listKey])
 
   const rawEntries = cachedList ?? data?.MediaListCollection?.lists?.[0]?.entries ?? []
 
@@ -130,8 +136,9 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
           return b.score - a.score || a.title.localeCompare(b.title)
         case "title":
           return a.title.localeCompare(b.title)
+        // A unix timestamp in seconds, not a date string — Date would read it as milliseconds.
         case "updatedAt":
-          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          return Number(b.updatedAt) - Number(a.updatedAt)
         // "Last Added" — entry ids increase over time, so newest first.
         default:
           return b.id - a.id
