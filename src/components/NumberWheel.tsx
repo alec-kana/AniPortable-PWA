@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from "react"
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
+
+export type NumberWheelHandle = { flush: () => void }
 
 type Props = {
   value: number
@@ -30,18 +32,10 @@ function decimalsOf(step: number): number {
 
 // Scrolling number picker with tap-to-type for large jumps. Built on native
 // CSS scroll-snap, so momentum comes free — we only read where it settles.
-export const NumberWheel: React.FC<Props> = ({
-  value,
-  min,
-  max,
-  step = 1,
-  onChange,
-  color,
-  disabled,
-  formatValue,
-  width = 56,
-  maxSelectable
-}) => {
+export const NumberWheel = forwardRef<NumberWheelHandle, Props>(function NumberWheel(
+  { value, min, max, step = 1, onChange, color, disabled, formatValue, width = 56, maxSelectable },
+  ref
+) {
   const decimals = useMemo(() => decimalsOf(step), [step])
   const values = useMemo(() => {
     const count = Math.round((max - min) / step) + 1
@@ -58,6 +52,7 @@ export const NumberWheel: React.FC<Props> = ({
 
   const containerRef = useRef<HTMLDivElement>(null)
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingIndex = useRef<number | null>(null)
   const isProgrammaticScroll = useRef(false)
   const [scrollIndex, setScrollIndex] = useState(indexOf(value))
   const [editing, setEditing] = useState(false)
@@ -82,6 +77,25 @@ export const NumberWheel: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value])
 
+  // Commits whatever the wheel last landed on, cancelling the settle wait. Callers
+  // closing the overlay use this so the edit is in state before they act on it.
+  const commitPending = () => {
+    if (settleTimer.current) {
+      clearTimeout(settleTimer.current)
+      settleTimer.current = null
+    }
+    const idx = pendingIndex.current
+    pendingIndex.current = null
+    if (idx === null) return
+    const settledValue = values[idx]
+    if (settledValue !== value) onChange(settledValue)
+  }
+
+  const commitPendingRef = useRef(commitPending)
+  commitPendingRef.current = commitPending
+
+  useImperativeHandle(ref, () => ({ flush: () => commitPendingRef.current() }), [])
+
   const handleScroll = () => {
     if (isProgrammaticScroll.current) return
     const el = containerRef.current
@@ -91,19 +105,17 @@ export const NumberWheel: React.FC<Props> = ({
     // actually be caught up to.
     const idx = Math.min(Math.max(Math.round(el.scrollTop / ROW_HEIGHT), 0), maxSelectableIndex)
     setScrollIndex(idx)
+    pendingIndex.current = idx
 
     if (settleTimer.current) clearTimeout(settleTimer.current)
     settleTimer.current = setTimeout(() => {
       scrollToIndex(idx, true)
-      const settledValue = values[idx]
-      if (settledValue !== value) onChange(settledValue)
+      commitPendingRef.current()
     }, SETTLE_DELAY_MS)
   }
 
   useEffect(() => {
-    return () => {
-      if (settleTimer.current) clearTimeout(settleTimer.current)
-    }
+    return () => commitPendingRef.current()
   }, [])
 
   const startEditing = () => {
@@ -223,4 +235,4 @@ export const NumberWheel: React.FC<Props> = ({
       )}
     </div>
   )
-}
+})

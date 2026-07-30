@@ -1,7 +1,8 @@
-import React from "react"
+import React, { useRef } from "react"
+import { flushSync } from "react-dom"
 import { motion } from "framer-motion"
 import { Check } from "lucide-react"
-import { NumberWheel } from "./NumberWheel"
+import { NumberWheel, type NumberWheelHandle } from "./NumberWheel"
 import { getMaxScore, getScoreStep, type MediaEntry } from "../lib/types"
 
 type Props = {
@@ -27,6 +28,19 @@ export const MediaCardOverlay: React.FC<Props> = ({
   onMarkCompleted,
   onClose
 }) => {
+  const progressWheel = useRef<NumberWheelHandle>(null)
+  const scoreWheel = useRef<NumberWheelHandle>(null)
+
+  // Synchronous so the committed value is in state — and reflected back in
+  // positionWillChange — before the close that reads it.
+  const closeAfterCommit = () => {
+    flushSync(() => {
+      progressWheel.current?.flush()
+      scoreWheel.current?.flush()
+    })
+    onClose()
+  }
+
   const maxScore = getMaxScore(scoreFormat)
   const scoreStep = getScoreStep(scoreFormat)
   // No known total (ongoing series) — give the wheel an open-ended range.
@@ -62,6 +76,7 @@ export const MediaCardOverlay: React.FC<Props> = ({
               Progress{entry.totalUnits ? ` / ${entry.totalUnits}` : ""}
             </span>
             <NumberWheel
+              ref={progressWheel}
               value={entry.progress}
               min={0}
               max={maxProgress}
@@ -76,6 +91,7 @@ export const MediaCardOverlay: React.FC<Props> = ({
           <div className="flex flex-col items-center">
             <span className="text-[10px] uppercase tracking-wide text-white/60 mb-1">Score / {maxScore}</span>
             <NumberWheel
+              ref={scoreWheel}
               value={entry.score}
               min={0}
               max={maxScore}
@@ -108,7 +124,7 @@ export const MediaCardOverlay: React.FC<Props> = ({
     >
       <motion.div
         className="absolute inset-0 bg-black/70"
-        onClick={onClose}
+        onClick={closeAfterCommit}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0, pointerEvents: "none" }}

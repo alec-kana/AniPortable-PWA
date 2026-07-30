@@ -125,13 +125,9 @@ export const MediaCard: React.FC<Props> = ({
               onScoreChange={onScoreChange}
               onMarkCompleted={() => {
                 onMarkCompleted()
-                onOpenChange?.(false)
                 setIsOpen(false)
               }}
-              onClose={() => {
-                onOpenChange?.(false)
-                setIsOpen(false)
-              }}
+              onClose={() => setIsOpen(false)}
             />
           )}
         </AnimatePresence>,
