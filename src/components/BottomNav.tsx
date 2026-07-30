@@ -24,9 +24,6 @@ type Props = {
   onSelect: (key: TabKey) => void
 }
 
-// Replaces the extension's top Tabs bar with a fixed bottom navigation bar —
-// standard mobile thumb-reach pattern, consistent with the rest of this
-// redesign moving interaction toward where a thumb naturally rests.
 export const BottomNav: React.FC<Props> = ({ tabs, selected, onSelect }) => {
   const { profileColor } = useSettings()
 

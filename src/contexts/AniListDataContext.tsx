@@ -1,86 +1,48 @@
 import React, { createContext, useState, useContext, useCallback } from "react"
 
+export type ListKey = "anime" | "manga" | "animeStats" | "mangaStats"
+
 type AniListDataContextType = {
-  animeList: any[] | null
-  statsList: any[] | null
-  mangaList: any[] | null
-  mangaStatsList: any[] | null
-  animeDirty: boolean
-  statsDirty: boolean
-  mangaDirty: boolean
-  mangaStatsDirty: boolean
-  setAnimeList: (data: any[]) => void
-  setStatsList: (data: any[]) => void
-  setMangaList: (data: any[]) => void
-  setMangaStatsList: (data: any[]) => void
-  markAnimeDirty: () => void
-  markStatsDirty: () => void
-  markMangaDirty: () => void
-  markMangaStatsDirty: () => void
-  clearAnimeDirty: () => void
-  clearStatsDirty: () => void
-  clearMangaDirty: () => void
-  clearMangaStatsDirty: () => void
+  lists: Record<ListKey, any[] | null>
+  dirty: Record<ListKey, boolean>
+  setList: (key: ListKey, data: any[]) => void
+  markDirty: (key: ListKey) => void
+  clearDirty: (key: ListKey) => void
 }
 
 const AniListDataContext = createContext<AniListDataContextType | null>(null)
 
 export const AniListDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [animeList, setAnimeList] = useState<any[] | null>(null)
-  const [statsList, setStatsList] = useState<any[] | null>(null)
-  const [mangaList, setMangaList] = useState<any[] | null>(null)
-  const [mangaStatsList, setMangaStatsList] = useState<any[] | null>(null)
-  const [animeDirty, setAnimeDirty] = useState(false)
-  const [statsDirty, setStatsDirty] = useState(false)
-  const [mangaDirty, setMangaDirty] = useState(false)
-  const [mangaStatsDirty, setMangaStatsDirty] = useState(false)
+  const [lists, setLists] = useState<Record<ListKey, any[] | null>>({
+    anime: null,
+    manga: null,
+    animeStats: null,
+    mangaStats: null
+  })
+  const [dirty, setDirty] = useState<Record<ListKey, boolean>>({
+    anime: false,
+    manga: false,
+    animeStats: false,
+    mangaStats: false
+  })
 
-  const markAnimeDirty = useCallback(() => {
-    setAnimeList([])
-    setAnimeDirty(true)
+  const setList = useCallback((key: ListKey, data: any[]) => {
+    setLists((prev) => ({ ...prev, [key]: data }))
   }, [])
-  const markStatsDirty = useCallback(() => {
-    setStatsList([])
-    setStatsDirty(true)
+
+  // Empties the cached list too, so a stale render can't flash old entries
+  // while the refetch triggered by the dirty flag is in flight.
+  const markDirty = useCallback((key: ListKey) => {
+    setLists((prev) => ({ ...prev, [key]: [] }))
+    setDirty((prev) => ({ ...prev, [key]: true }))
   }, [])
-  const markMangaDirty = useCallback(() => {
-    setMangaList([])
-    setMangaDirty(true)
+
+  const clearDirty = useCallback((key: ListKey) => {
+    setDirty((prev) => ({ ...prev, [key]: false }))
   }, [])
-  const markMangaStatsDirty = useCallback(() => {
-    setMangaStatsList([])
-    setMangaStatsDirty(true)
-  }, [])
-  const clearAnimeDirty = useCallback(() => setAnimeDirty(false), [])
-  const clearStatsDirty = useCallback(() => setStatsDirty(false), [])
-  const clearMangaDirty = useCallback(() => setMangaDirty(false), [])
-  const clearMangaStatsDirty = useCallback(() => setMangaStatsDirty(false), [])
 
   return (
-    <AniListDataContext.Provider
-      value={{
-        animeList,
-        statsList,
-        mangaList,
-        mangaStatsList,
-        animeDirty,
-        statsDirty,
-        mangaDirty,
-        mangaStatsDirty,
-        setAnimeList,
-        setStatsList,
-        setMangaList,
-        setMangaStatsList,
-        markAnimeDirty,
-        markStatsDirty,
-        markMangaDirty,
-        markMangaStatsDirty,
-        clearAnimeDirty,
-        clearStatsDirty,
-        clearMangaDirty,
-        clearMangaStatsDirty
-      }}
-    >
+    <AniListDataContext.Provider value={{ lists, dirty, setList, markDirty, clearDirty }}>
       {children}
     </AniListDataContext.Provider>
   )

@@ -12,9 +12,7 @@ import { useAuth } from "./hooks/useAuth"
 import { handleAuthRedirect } from "./lib/auth"
 import { SquareArrowOutUpRight, Loader2 } from "lucide-react"
 
-// recharts (pulled in by StatsTab) is the single biggest contributor to the
-// bundle — split it into its own chunk so it only loads once someone
-// actually opens the Stats tab, keeping the initial mobile load light.
+// Split out so recharts only loads when the Stats tab is actually opened.
 const StatsTab = lazy(() => import("./components/StatsTab").then((m) => ({ default: m.StatsTab })))
 
 const TAB_DEFS: { key: TabKey; Component: React.FC }[] = [
@@ -58,9 +56,7 @@ function AppContent() {
             <img src={user.avatar.medium} alt="Avatar" className="w-14 h-14 rounded-sm object-cover shrink-0" />
           )}
           {user.name && (
-            // mb-3 only on the text, not the avatar — the avatar should
-            // still touch the bottom edge, but the text sitting right on
-            // that same line reads as cramped, so it gets its own gap.
+            // mb-3 on the text only, so the avatar still touches the bottom edge.
             <p className="text-white font-bold tracking-wide text-sm break-words min-w-0 leading-none mb-3">{user.name}</p>
           )}
         </div>

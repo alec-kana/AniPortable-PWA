@@ -1,14 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react"
 import { useQuery, gql, type ApolloError } from "@apollo/client"
-import { Storage } from "../lib/storage"
-
-const VIEWER_QUERY = gql`
-  query {
-    Viewer {
-      id
-    }
-  }
-`
+import { load, save } from "../lib/storage"
+import { VIEWER_QUERY } from "../lib/queries"
 
 const SETTINGS_QUERY = gql`
   query ($userId: Int) {
@@ -26,6 +19,18 @@ const SETTINGS_QUERY = gql`
   }
 `
 
+const PROFILE_COLORS: Record<string, string> = {
+  pink: '#e85fb2',
+  blue: '#3db4f2',
+  purple: '#b368e6',
+  green: '#4abd4e',
+  orange: '#ef881a',
+  red: '#e13333',
+  gray: '#677b94'
+}
+
+type TabVisibility = 'both' | 'anime' | 'manga'
+
 interface SettingsContextType {
   profileColor: string
   titleLanguage: string
@@ -34,7 +39,7 @@ interface SettingsContextType {
   rowOrder: string
   manualCompletion: boolean
   separateEntries: boolean
-  tabVisibility: 'both' | 'anime' | 'manga'
+  tabVisibility: TabVisibility
   showAnimeStats: boolean
   showMangaStats: boolean
   setProfileColor: (color: string) => void
@@ -44,7 +49,7 @@ interface SettingsContextType {
   setRowOrder: (order: string) => void
   setManualCompletion: (manual: boolean) => void
   setSeparateEntries: (separate: boolean) => void
-  setTabVisibility: (visibility: 'both' | 'anime' | 'manga') => void
+  setTabVisibility: (visibility: TabVisibility) => void
   setShowAnimeStats: (show: boolean) => void
   setShowMangaStats: (show: boolean) => void
   loading: boolean
@@ -53,122 +58,61 @@ interface SettingsContextType {
 
 const SettingsContext = createContext<SettingsContextType | null>(null)
 
-// Color mapping function
-const getColorValue = (color: string): string => {
-  const colorMap: { [key: string]: string } = {
-    'pink': '#e85fb2',
-    'blue': '#3db4f2',
-    'purple': '#b368e6',
-    'green': '#4abd4e',
-    'orange': '#ef881a',
-    'red': '#e13333',
-    'gray': '#677b94',
+// Local-only settings (the ones AniList doesn't store) read straight from
+// localStorage on first render and write back on every change.
+function usePersistedState<T>(key: string, fallback: T) {
+  const [value, setValue] = useState<T>(() => load<T>(key) ?? fallback)
+
+  const set = (next: T) => {
+    setValue(next)
+    save(key, next)
   }
-  return colorMap[color] || color
+
+  return [value, set] as const
 }
 
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [profileColor, setProfileColorState] = useState<string>('blue')
-  const [titleLanguage, setTitleLanguageState] = useState<string>('ROMAJI')
-  const [displayAdultContent, setDisplayAdultContentState] = useState<boolean>(false)
-  const [scoreFormat, setScoreFormatState] = useState<string>('POINT_10')
-  const [rowOrder, setRowOrderState] = useState<string>('score')
-  const [manualCompletion, setManualCompletionState] = useState<boolean>(false)
-  const [separateEntries, setSeparateEntriesState] = useState<boolean>(false)
-  const [tabVisibility, setTabVisibilityState] = useState<'both' | 'anime' | 'manga'>('both')
-  const [showAnimeStats, setShowAnimeStatsState] = useState<boolean>(true)
-  const [showMangaStats, setShowMangaStatsState] = useState<boolean>(true)
+  const [profileColor, setProfileColor] = useState('blue')
+  const [titleLanguage, setTitleLanguage] = useState('ROMAJI')
+  const [displayAdultContent, setDisplayAdultContent] = useState(false)
+  const [scoreFormat, setScoreFormat] = useState('POINT_10')
+  const [rowOrder, setRowOrder] = useState('score')
 
-  // Get user ID first
+  const [manualCompletion, setManualCompletion] = usePersistedState('manualCompletion', false)
+  const [separateEntries, setSeparateEntries] = usePersistedState('separateEntries', false)
+  const [tabVisibility, setTabVisibilityValue] = usePersistedState<TabVisibility>('tabVisibility', 'both')
+  const [showAnimeStats, setShowAnimeStats] = usePersistedState('showAnimeStats', true)
+  const [showMangaStats, setShowMangaStats] = usePersistedState('showMangaStats', true)
+
   const { data: viewerData, error: viewerError } = useQuery(VIEWER_QUERY)
   const userId = viewerData?.Viewer?.id
 
-  // Get user settings
   const { data: settingsData, loading, error: settingsError } = useQuery(SETTINGS_QUERY, {
     variables: { userId },
     skip: !userId
   })
 
-  const error = viewerError || settingsError
-
-  // Update state when settings are fetched
   useEffect(() => {
-    if (settingsData?.User?.options) {
-      const options = settingsData.User.options
-      const mediaListOptions = settingsData.User.mediaListOptions
-      setProfileColorState(options.profileColor || 'blue')
-      setTitleLanguageState(options.titleLanguage || 'ROMAJI')
-      setDisplayAdultContentState(options.displayAdultContent || false)
-      setScoreFormatState(mediaListOptions.scoreFormat || 'POINT_10')
-      setRowOrderState(mediaListOptions.rowOrder || 'score')
-    }
+    if (!settingsData?.User?.options) return
+    const { options, mediaListOptions } = settingsData.User
+    setProfileColor(options.profileColor || 'blue')
+    setTitleLanguage(options.titleLanguage || 'ROMAJI')
+    setDisplayAdultContent(options.displayAdultContent || false)
+    setScoreFormat(mediaListOptions.scoreFormat || 'POINT_10')
+    setRowOrder(mediaListOptions.rowOrder || 'score')
   }, [settingsData])
 
-  // Load local-only settings once on mount
-  useEffect(() => {
-    Promise.all([
-      Storage.get<boolean>('manualCompletion'),
-      Storage.get<boolean>('separateEntries'),
-      Storage.get<'both' | 'anime' | 'manga'>('tabVisibility'),
-      Storage.get<boolean>('showAnimeStats'),
-      Storage.get<boolean>('showMangaStats')
-    ]).then(([manual, separate, visibility, showAnime, showManga]) => {
-      setManualCompletionState(manual ?? false)
-      setSeparateEntriesState(separate ?? false)
-      setTabVisibilityState(visibility ?? 'both')
-      setShowAnimeStatsState(showAnime ?? true)
-      setShowMangaStatsState(showManga ?? true)
-    })
-  }, [])
-
-  const setProfileColor = async (color: string) => {
-    setProfileColorState(color)
-  }
-  const setTitleLanguage = async (language: string) => {
-    setTitleLanguageState(language)
-  }
-  const setDisplayAdultContent = async (display: boolean) => {
-    setDisplayAdultContentState(display)
-  }
-  const setScoreFormat = async (format: string) => {
-    setScoreFormatState(format)
-  }
-  const setRowOrder = async (order: string) => {
-    setRowOrderState(order)
-  }
-  const setManualCompletion = async (manual: boolean) => {
-    setManualCompletionState(manual)
-    Storage.set('manualCompletion', manual)
-  }
-  const setSeparateEntries = async (separate: boolean) => {
-    setSeparateEntriesState(separate)
-    Storage.set('separateEntries', separate)
-  }
-  const setTabVisibility = async (visibility: 'both' | 'anime' | 'manga') => {
-    setTabVisibilityState(visibility)
-    Storage.set('tabVisibility', visibility)
-
-    // Default the stats visibility to match, since a hidden tab implies the
-    // user isn't tracking that list — they can still re-enable it below.
-    const showAnime = visibility !== 'manga'
-    const showManga = visibility !== 'anime'
-    setShowAnimeStatsState(showAnime)
-    setShowMangaStatsState(showManga)
-    Storage.set('showAnimeStats', showAnime)
-    Storage.set('showMangaStats', showManga)
-  }
-  const setShowAnimeStats = async (show: boolean) => {
-    setShowAnimeStatsState(show)
-    Storage.set('showAnimeStats', show)
-  }
-  const setShowMangaStats = async (show: boolean) => {
-    setShowMangaStatsState(show)
-    Storage.set('showMangaStats', show)
+  const setTabVisibility = (visibility: TabVisibility) => {
+    setTabVisibilityValue(visibility)
+    // A hidden tab implies that list isn't being tracked, so its stats default
+    // to matching — still individually re-enablable in Settings.
+    setShowAnimeStats(visibility !== 'manga')
+    setShowMangaStats(visibility !== 'anime')
   }
 
   return (
     <SettingsContext.Provider value={{
-      profileColor: getColorValue(profileColor), // Return the mapped hex color
+      profileColor: PROFILE_COLORS[profileColor] ?? profileColor,
       titleLanguage,
       displayAdultContent,
       scoreFormat,
@@ -189,7 +133,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       setShowAnimeStats,
       setShowMangaStats,
       loading,
-      error
+      error: viewerError || settingsError
     }}>
       {children}
     </SettingsContext.Provider>

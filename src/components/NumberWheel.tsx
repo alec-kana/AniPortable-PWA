@@ -10,22 +10,16 @@ type Props = {
   disabled?: boolean
   formatValue?: (value: number) => string
   width?: number
-  // Caps how far scrolling can actually reach, independent of `max` — e.g.
-  // an airing show with 12 total episodes but only 4 released: `max` stays
-  // 12 so all rows still render (context on what's coming), but scrolling
-  // can't go past 4. Rows beyond it render dimmed. Defaults to `max` (no
-  // separate cap) when omitted.
+  // Caps how far scrolling can reach, independent of `max`: an airing show
+  // renders all 12 episode rows but can't scroll past the 4 that have aired.
   maxSelectable?: number
 }
 
 const ROW_HEIGHT = 30
 const VISIBLE_ROWS = 3
 const SETTLE_DELAY_MS = 120
-// How many rows to keep mounted on either side of the current position.
-// Ranges can be huge (e.g. progress falls back to a 0-9999 range for an
-// ongoing series with no known total, or a long-running manga's real
-// chapter count), so only a small window around scrollIndex is ever
-// rendered — the full `values` array stays a cheap number array, never DOM.
+// Rows kept mounted either side of the current position — ranges run up to
+// 9999, so only a window around scrollIndex is ever in the DOM.
 const WINDOW_RADIUS = 20
 
 function decimalsOf(step: number): number {
@@ -34,10 +28,8 @@ function decimalsOf(step: number): number {
   return dot === -1 ? 0 : str.length - dot - 1
 }
 
-// A vertically scrolling number picker (tap-scrub for fine adjustment) with
-// tap-to-type as a fallback for large jumps. Built on native CSS scroll-snap
-// rather than hand-rolled drag physics — momentum/inertia comes for free
-// from the browser, we only need to read where it settles.
+// Scrolling number picker with tap-to-type for large jumps. Built on native
+// CSS scroll-snap, so momentum comes free — we only read where it settles.
 export const NumberWheel: React.FC<Props> = ({
   value,
   min,
@@ -76,16 +68,13 @@ export const NumberWheel: React.FC<Props> = ({
     if (!el) return
     isProgrammaticScroll.current = true
     el.scrollTo({ top: idx * ROW_HEIGHT, behavior: smooth ? "smooth" : "instant" })
-    // scrollTo with behavior:"instant" still fires a scroll event on some
-    // browsers — release the guard on the next frame either way.
+    // Some browsers fire a scroll event even for "instant" — release next frame.
     requestAnimationFrame(() => {
       isProgrammaticScroll.current = false
     })
   }
 
-  // Keep the wheel synced when `value` changes from outside (e.g. the
-  // tap-to-type input, or another client updating the same entry) — but not
-  // while the user is actively mid-scroll.
+  // Resync when `value` changes from outside (e.g. the tap-to-type input).
   useEffect(() => {
     const idx = indexOf(value)
     setScrollIndex(idx)

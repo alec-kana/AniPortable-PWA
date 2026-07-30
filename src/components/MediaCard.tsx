@@ -14,7 +14,6 @@ type Props = {
   onProgressChange: (progress: number) => void
   onScoreChange: (score: number) => void
   onMarkCompleted: () => void
-  maxProgressFallback?: number
   onOpenChange?: (isOpen: boolean) => void
   positionWillChange?: boolean
 }
@@ -27,7 +26,6 @@ export const MediaCard: React.FC<Props> = ({
   onProgressChange,
   onScoreChange,
   onMarkCompleted,
-  maxProgressFallback,
   onOpenChange,
   positionWillChange = false
 }) => {
@@ -125,7 +123,6 @@ export const MediaCard: React.FC<Props> = ({
                 onOpenChange?.(false)
                 setIsOpen(false)
               }}
-              maxProgressFallback={maxProgressFallback}
             />
           )}
         </AnimatePresence>,

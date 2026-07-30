@@ -1,16 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react'
 
 interface Option {
-  value: string;
-  name: string;
+  value: string
+  name: string
 }
 
 interface CustomSelectProps {
-  options: Option[];
-  value: string;
-  onChange: (value: string) => void;
-  profileColor: string;
-  className?: string;
+  options: Option[]
+  value: string
+  onChange: (value: string) => void
+  profileColor: string
+  className?: string
 }
 
 export const CustomSelect: React.FC<CustomSelectProps> = ({
@@ -20,31 +20,25 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
   className = "",
   profileColor = "#3db4f2"
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
-  const selectRef = useRef<HTMLDivElement>(null);
+  const [isOpen, setIsOpen] = useState(false)
+  const [isFocused, setIsFocused] = useState(false)
+  const selectRef = useRef<HTMLDivElement>(null)
 
-  const selectedOption = options.find(option => option.value === value);
+  const selectedOption = options.find(option => option.value === value)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (selectRef.current && !selectRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+        setIsOpen(false)
       }
-    };
+    }
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleSelect = (optionValue: string) => {
-    onChange(optionValue);
-    setIsOpen(false);
-  };
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   return (
     <div ref={selectRef} className={`relative ${className}`}>
-      {/* Main select button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -58,8 +52,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         <span>
           {selectedOption ? selectedOption.name : ''}
         </span>
-        
-        {/* Dropdown arrow */}
+
         <svg
           className={`w-4 h-4 text-gray transition-transform duration-200 ${
             isOpen ? 'rotate-180' : ''
@@ -72,18 +65,20 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         </svg>
       </button>
 
-      {/* Options dropdown */}
       {isOpen && (
         <div className="absolute z-50 w-full mt-1 border border-gray/30 rounded-lg bg-white-100 shadow-lg px-2 py-1">
           {options.map((option) => (
           <button
             key={option.value}
             type="button"
-            onClick={() => handleSelect(option.value)}
+            onClick={() => {
+              onChange(option.value)
+              setIsOpen(false)
+            }}
             className={`
               w-full px-2 py-1 my-1 text-left transition-colors duration-150 rounded-md hover:bg-white
-              ${option.value === value 
-                ? 'font-medium' 
+              ${option.value === value
+                ? 'font-medium'
                 : 'text-gray'
               }
             `}
@@ -97,5 +92,5 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         </div>
       )}
     </div>
-  );
-};
+  )
+}

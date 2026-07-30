@@ -1,7 +1,7 @@
 import React from "react"
 import { useMutation, gql } from "@apollo/client"
 import { useSettings } from "../contexts/SettingsContext"
-import { useAniListData } from "../contexts/AniListDataContext"
+import { useAniListData, type ListKey } from "../contexts/AniListDataContext"
 import { useAuth } from "../hooks/useAuth"
 import { CustomSelect } from './CustomSelect'
 import { CustomCheckbox } from './CustomCheckbox'
@@ -60,6 +60,8 @@ const UPDATE_ROW_ORDER = gql`
   }
 `
 
+const ALL_LIST_KEYS: ListKey[] = ['anime', 'animeStats', 'manga', 'mangaStats']
+
 const colorOptions = [
   { name: 'blue', color: '#3db4f2' },
   { name: 'purple', color: '#b368e6' },
@@ -69,6 +71,15 @@ const colorOptions = [
   { name: 'pink', color: '#e85fb2' },
   { name: 'gray', color: '#677b94' },
 ]
+
+const HelpTooltip: React.FC<{ children: string }> = ({ children }) => (
+  <div className="relative group">
+    <HelpCircle className="text-gray cursor-help" size={16} />
+    <div className="absolute bottom-full shadow-lg border border-white left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1.5 bg-white-100 text-gray text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none w-56 z-10">
+      {children}
+    </div>
+  </div>
+)
 
 export const SettingsTab: React.FC = () => {
   const {
@@ -96,13 +107,7 @@ export const SettingsTab: React.FC = () => {
     error
   } = useSettings()
 
-  const {
-    markAnimeDirty,
-    markStatsDirty,
-    markMangaDirty,
-    markMangaStatsDirty
-  } = useAniListData()
-
+  const { markDirty } = useAniListData()
   const { logout } = useAuth()
 
   const [updateProfileColor] = useMutation(UPDATE_PROFILE_COLOR)
@@ -110,6 +115,10 @@ export const SettingsTab: React.FC = () => {
   const [updateDisplayAdultContent] = useMutation(UPDATE_DISPLAY_ADULT_CONTENT)
   const [updateScoreFormat] = useMutation(UPDATE_SCORE_FORMAT)
   const [updateRowOrder] = useMutation(UPDATE_ROW_ORDER)
+
+  // These two settings change what the API returns, so every cached list has
+  // to be refetched rather than just re-rendered.
+  const refetchAllLists = () => ALL_LIST_KEYS.forEach((key) => markDirty(key))
 
   const handleColorChange = async (color: string) => {
     setProfileColor(color)
@@ -133,12 +142,7 @@ export const SettingsTab: React.FC = () => {
     setDisplayAdultContent(checked)
     try {
       await updateDisplayAdultContent({ variables: { displayAdultContent: checked } })
-
-      // Refetch AniList data for both anime and manga
-      markAnimeDirty()
-      markStatsDirty()
-      markMangaDirty()
-      markMangaStatsDirty()
+      refetchAllLists()
     } catch (error) {
       console.error('Failed to update adult content setting:', error)
     }
@@ -148,12 +152,7 @@ export const SettingsTab: React.FC = () => {
     setScoreFormat(format)
     try {
       await updateScoreFormat({ variables: { scoreFormat: format } })
-
-      // Refetch AniList data for both anime and manga
-      markAnimeDirty()
-      markStatsDirty()
-      markMangaDirty()
-      markMangaStatsDirty()
+      refetchAllLists()
     } catch (error) {
       console.error('Failed to update score format:', error)
     }
@@ -168,18 +167,6 @@ export const SettingsTab: React.FC = () => {
     }
   }
 
-  const handleManualCompletionChange = async (manual: boolean) => {
-    setManualCompletion(manual)
-  }
-
-  const handleSeparateEntriesChange = async (separate: boolean) => {
-    setSeparateEntries(separate)
-  }
-
-  const handleTabVisibilityChange = async (visibility: string) => {
-    setTabVisibility(visibility as 'both' | 'anime' | 'manga')
-  }
-
   if (error)
     return (
       <StateMessage
@@ -192,7 +179,6 @@ export const SettingsTab: React.FC = () => {
 
   return (
     <div className="px-5 py-4 space-y-5 flex-1">
-      {/* Profile Color */}
       <div>
         <h3 className="text-sm font-medium mb-2 text-gray">Profile Color</h3>
         <div className="grid grid-cols-7 gap-2 ml-2">
@@ -217,7 +203,6 @@ export const SettingsTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Score Format */}
       <div>
         <h3 className="text-sm font-medium mb-2 text-gray">Scoring System</h3>
         <CustomSelect
@@ -235,7 +220,6 @@ export const SettingsTab: React.FC = () => {
         />
       </div>
 
-      {/* Row Order */}
       <div>
         <h3 className="text-sm font-medium mb-2 text-gray">Default List Order</h3>
         <CustomSelect
@@ -252,7 +236,6 @@ export const SettingsTab: React.FC = () => {
         />
       </div>
 
-      {/* Title Language */}
       <div>
         <h3 className="text-sm font-medium mb-2 text-gray">Title Language</h3>
         <CustomSelect
@@ -268,7 +251,6 @@ export const SettingsTab: React.FC = () => {
         />
       </div>
 
-      {/* Tab Visibility */}
       <div>
         <h3 className="text-sm font-medium mb-2 text-gray">Media Type</h3>
         <CustomToggle
@@ -278,13 +260,12 @@ export const SettingsTab: React.FC = () => {
             { label: "Manga", value: "manga" }
           ]}
           value={tabVisibility}
-          onChange={handleTabVisibilityChange}
+          onChange={(value) => setTabVisibility(value as 'both' | 'anime' | 'manga')}
           profileColor={profileColor}
           className="w-full"
         />
       </div>
 
-      {/* Stats Visibility */}
       <div>
         <h3 className="text-sm font-medium mb-2 text-gray">Show in Stats</h3>
         <div className="flex items-center gap-6">
@@ -305,45 +286,35 @@ export const SettingsTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Preferences */}
       <div>
         <h3 className="text-sm font-medium mb-2 text-gray">Preferences</h3>
         <div className="space-y-3">
-          {/* Manual Completion */}
           <div className="flex items-center space-x-2">
             <CustomCheckbox
               checked={manualCompletion}
-              onChange={handleManualCompletionChange}
+              onChange={setManualCompletion}
               label="Manually Mark As Completed"
               profileColor={profileColor}
               className="space-x-1 text-sm text-gray"
             />
-            <div className="relative group">
-              <HelpCircle className="text-gray cursor-help" size={16} />
-              <div className="absolute bottom-full shadow-lg border border-white left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1.5 bg-white-100 text-gray text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none w-56 z-10">
-                When enabled, anime/manga stay in your list even after completing all episodes/chapters. A one-click complete button will appear to manually mark them as completed.
-              </div>
-            </div>
+            <HelpTooltip>
+              When enabled, anime/manga stay in your list even after completing all episodes/chapters. A one-click complete button will appear to manually mark them as completed.
+            </HelpTooltip>
           </div>
 
-          {/* Separate Entries */}
           <div className="flex items-center space-x-2">
             <CustomCheckbox
               checked={separateEntries}
-              onChange={handleSeparateEntriesChange}
+              onChange={setSeparateEntries}
               label="Separate Caught-Up Entries"
               profileColor={profileColor}
               className="space-x-1 text-sm text-gray"
             />
-            <div className="relative group">
-              <HelpCircle className="text-gray cursor-help" size={16} />
-              <div className="absolute bottom-full shadow-lg border border-white left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1.5 bg-white-100 text-gray text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none w-56 z-10">
-                When enabled, anime/manga that you've caught up to (watched/read all available episodes/chapters) are shown separately from those with remaining content.
-              </div>
-            </div>
+            <HelpTooltip>
+              When enabled, anime/manga that you've caught up to (watched/read all available episodes/chapters) are shown separately from those with remaining content.
+            </HelpTooltip>
           </div>
 
-          {/* Adult Content */}
           <div>
             <CustomCheckbox
               checked={displayAdultContent}
@@ -356,7 +327,6 @@ export const SettingsTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Logout */}
       <div className="pt-1 flex items-center justify-between">
         <button
           onClick={logout}

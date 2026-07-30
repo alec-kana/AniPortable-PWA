@@ -6,7 +6,6 @@ export const LoginPage: React.FC = () => {
 
   const handleLogin = () => {
     try {
-      // Full-page redirect — on success this navigates away entirely.
       login()
     } catch (error) {
       console.error('Login failed:', error)
@@ -16,13 +15,11 @@ export const LoginPage: React.FC = () => {
   return (
     <div className="min-h-screen w-full bg-white flex items-center justify-center p-6">
       <div className="max-w-sm w-full space-y-5">
-        {/* Header */}
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray mb-2">AniPortable</h1>
           <p className="text-gray/70">Track your anime progress</p>
         </div>
 
-        {/* Login Card */}
         <div className="bg-white-100 border border-gray/20 rounded-xl p-8 shadow-md">
           <div className="text-center space-y-6">
             <div>

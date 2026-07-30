@@ -14,7 +14,6 @@ type Props = {
   onScoreChange: (score: number) => void
   onMarkCompleted: () => void
   onClose: () => void
-  maxProgressFallback?: number
 }
 
 export const MediaCardOverlay: React.FC<Props> = ({
@@ -26,12 +25,12 @@ export const MediaCardOverlay: React.FC<Props> = ({
   onProgressChange,
   onScoreChange,
   onMarkCompleted,
-  onClose,
-  maxProgressFallback = 9999
+  onClose
 }) => {
   const maxScore = getMaxScore(scoreFormat)
   const scoreStep = getScoreStep(scoreFormat)
-  const maxProgress = entry.totalUnits ?? maxProgressFallback
+  // No known total (ongoing series) — give the wheel an open-ended range.
+  const maxProgress = entry.totalUnits ?? 9999
   const showCompletionButton = entry.totalUnits !== null && entry.progress >= entry.totalUnits
 
   const latestReleasedEpisode = entry.nextAiringEpisode !== null ? entry.nextAiringEpisode - 1 : null
