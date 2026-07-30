@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, useIsPresent } from "framer-motion"
 import { Check } from "lucide-react"
 import { MediaCardOverlay } from "./MediaCardOverlay"
 import { notifyCardOpened, notifyCardClosed } from "../lib/syncQueue"
@@ -15,14 +15,10 @@ type Props = {
   onScoreChange: (score: number) => void
   onMarkCompleted: () => void
   maxProgressFallback?: number
+  onOpenChange?: (isOpen: boolean) => void
+  positionWillChange?: boolean
 }
 
-// Replaces the extension's hover-driven AnimeCard: tap opens a centered,
-// backdropped overlay (MediaCardOverlay) via a Framer Motion shared layoutId
-// transition instead of relying on :hover, which doesn't exist on touch.
-// Mark-completed stays a directly-tappable button on the closed card itself
-// (not gated behind opening the overlay), since it's the one action users
-// are likely to repeat rapidly across many entries in a row.
 export const MediaCard: React.FC<Props> = ({
   entry,
   profileColor,
@@ -31,15 +27,30 @@ export const MediaCard: React.FC<Props> = ({
   onProgressChange,
   onScoreChange,
   onMarkCompleted,
-  maxProgressFallback
+  maxProgressFallback,
+  onOpenChange,
+  positionWillChange = false
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const layoutId = `media-card-${entry.id}`
+  const isPresent = useIsPresent()
 
-  // Pause the sync debounce while this card's overlay is open, so an idle
-  // pause mid-adjustment can't trigger a flush while still editing.
+  const wasOpenBeforeExit = useRef(isOpen)
+  if (isPresent) {
+    wasOpenBeforeExit.current = isOpen
+  }
+
+  const onOpenChangeRef = useRef(onOpenChange)
+  onOpenChangeRef.current = onOpenChange
+
   useEffect(() => {
+    return () => onOpenChangeRef.current?.(false)
+  }, [])
+
+  useEffect(() => {
+    onOpenChange?.(isOpen)
     if (!isOpen) return
+
     notifyCardOpened()
     return () => notifyCardClosed()
   }, [isOpen])
@@ -49,27 +60,29 @@ export const MediaCard: React.FC<Props> = ({
   }
 
   const showCompletionButton = entry.totalUnits !== null && entry.progress >= entry.totalUnits
+  const hideCover = isOpen || (!isPresent && wasOpenBeforeExit.current)
 
   return (
     <>
-      {isOpen ? (
+      {hideCover ? (
         <div className="w-full aspect-[3/4]" aria-hidden />
       ) : (
         <motion.div
           layoutId={layoutId}
-          onClick={() => setIsOpen(true)}
+          onClick={() => isPresent && setIsOpen(true)}
           className="relative w-full aspect-[3/4] overflow-hidden rounded-lg shadow-md cursor-pointer"
           style={{
             backgroundImage: `url(${entry.cover})`,
             backgroundSize: "cover",
-            backgroundPosition: "center"
+            backgroundPosition: "center",
+            pointerEvents: isPresent ? "auto" : "none"
           }}
         >
           {showCompletionButton && (
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                onMarkCompleted()
+                if (isPresent) onMarkCompleted()
               }}
               className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full text-white-100 shadow-lg"
               style={{ backgroundColor: profileColor }}
@@ -80,9 +93,7 @@ export const MediaCard: React.FC<Props> = ({
           )}
 
           <div className="absolute bottom-0 left-0 right-0 bg-black/65 p-2.5">
-            <h4 className="font-medium text-xs leading-tight mb-1 text-white line-clamp-2">
-              {entry.title}
-            </h4>
+            <h4 className="font-medium text-xs leading-tight mb-1 text-white line-clamp-2">{entry.title}</h4>
             <div className="flex items-center justify-between text-xs" style={{ color: profileColor }}>
               <span>
                 {entry.progress}
@@ -102,13 +113,18 @@ export const MediaCard: React.FC<Props> = ({
               entry={entry}
               profileColor={profileColor}
               scoreFormat={scoreFormat}
+              positionWillChange={positionWillChange}
               onProgressChange={onProgressChange}
               onScoreChange={onScoreChange}
               onMarkCompleted={() => {
                 onMarkCompleted()
+                onOpenChange?.(false)
                 setIsOpen(false)
               }}
-              onClose={() => setIsOpen(false)}
+              onClose={() => {
+                onOpenChange?.(false)
+                setIsOpen(false)
+              }}
               maxProgressFallback={maxProgressFallback}
             />
           )}
