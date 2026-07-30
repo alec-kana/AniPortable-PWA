@@ -2,6 +2,20 @@ const ANILIST_GRAPHQL_URL = "https://graphql.anilist.co"
 
 export type PendingUpdate = { progress?: number; score?: number; status?: string }
 
+export class AniListRequestError extends Error {
+  readonly status: number
+  // An aliased multi-mutation can partly succeed, so the payload still names which entries
+  // landed even though the request as a whole failed.
+  readonly data: unknown
+
+  constructor(message: string, status: number, data: unknown) {
+    super(message)
+    this.name = "AniListRequestError"
+    this.status = status
+    this.data = data
+  }
+}
+
 async function request(token: string, query: string, variables?: Record<string, unknown>) {
   const response = await fetch(ANILIST_GRAPHQL_URL, {
     method: "POST",
@@ -20,10 +34,18 @@ async function request(token: string, query: string, variables?: Record<string, 
   // request as a successful one.
   if (!response.ok) {
     const detail = json?.errors?.[0]?.message
-    throw new Error(`AniList request failed with ${response.status}${detail ? `: ${detail}` : ""}`)
+    throw new AniListRequestError(
+      `AniList request failed with ${response.status}${detail ? `: ${detail}` : ""}`,
+      response.status,
+      json?.data
+    )
   }
   if (json?.errors?.length) {
-    throw new Error(json.errors.map((error: { message?: string }) => error.message).join("; "))
+    throw new AniListRequestError(
+      json.errors.map((error: { message?: string }) => error.message).join("; "),
+      response.status,
+      json?.data
+    )
   }
 
   return json
