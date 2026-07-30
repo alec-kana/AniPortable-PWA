@@ -55,6 +55,11 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
   const [exitingId, setExitingId] = useState<OpenEntryState | null>(null)
   const exitTimeoutRef = useRef<number | null>(null)
 
+  // Finishing a series drops it from the list, but not until the overlay is closed: pulling
+  // the card out mid-interaction leaves the overlay morphing back into a card that has already
+  // left, and strands the wheel on a stale value so the edit can't be undone.
+  const [pendingRemovalId, setPendingRemovalId] = useState<number | null>(null)
+
   // The only card allowed to animate into place. It expires on its own so a card touched
   // earlier can never still hold the privilege when the next update reshuffles the list.
   const [animatingTargetId, setAnimatingTargetId] = useState<number | null>(null)
@@ -144,6 +149,9 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
         : "behind"
 
   const willEntryMove = (entryId: number, category: Category) => {
+    // A card queued for removal is leaving its slot either way, so it never morphs back.
+    if (pendingRemovalId === entryId) return true
+
     const live = sorted.find((entry) => entry.id === entryId)
     if (!live) return false
 
@@ -166,7 +174,7 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
   const openEntryPositionWillChange = useMemo(() => {
     if (!openEntry) return false
     return willEntryMove(openEntry.id, openEntry.category)
-  }, [openEntry, orderedSorted, sorted])
+  }, [openEntry, orderedSorted, sorted, pendingRemovalId])
 
   const visible = useMemo(() => {
     return orderedSorted.filter((entry) => entry.id !== exitingId?.id)
@@ -192,6 +200,15 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
         if (!entry) return prev
         return { id: entryId, category: config.isCaughtUp(entry) ? "caughtUp" : "behind" }
       })
+      return
+    }
+
+    if (pendingRemovalId === entryId) {
+      removeFromLocalList(entryId)
+      markDirty(config.statsKey)
+      setPendingRemovalId(null)
+      // Leaving the list is its own exit animation — no need to hide the slot first.
+      setOpenEntry((prev) => (prev?.id === entryId ? null : prev))
       return
     }
 
@@ -241,12 +258,9 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
     const clampedProgress = Math.min(Math.max(0, newProgress), entry.totalUnits || 9999)
     const finished = entry.totalUnits && clampedProgress >= entry.totalUnits
 
-    if (finished && !manualCompletion) {
-      removeFromLocalList(entry.id)
-      markDirty(config.statsKey)
-    } else {
-      updateLocalList(entry.id, { progress: clampedProgress })
-    }
+    updateLocalList(entry.id, { progress: clampedProgress })
+    // Re-evaluated on every commit, so scrolling back below the total calls the removal off.
+    setPendingRemovalId(finished && !manualCompletion ? entry.id : null)
 
     queueUpdate({ entryId: entry.id, progress: clampedProgress })
 
