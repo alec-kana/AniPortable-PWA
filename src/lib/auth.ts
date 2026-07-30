@@ -12,17 +12,29 @@ const CLIENT_ID = import.meta.env.VITE_ANILIST_CLIENT_ID as string | undefined
 const OAUTH_STATE_KEY = "aniportable_oauth_state"
 
 const authChannel = new BroadcastChannel("aniportable-auth")
+// BroadcastChannel never delivers a message back to the object that sent it,
+// and authChannel is a single module-level instance shared by every
+// importer — so a same-tab broadcast (e.g. AppContent's useAuth vs.
+// SettingsTab's useAuth, two separate hook instances) would otherwise never
+// reach its own page. Local listeners handle same-tab sync directly; the
+// channel is still needed for cross-tab sync.
+const localListeners = new Set<() => void>()
 
 export function broadcastAuthChange(): void {
+  localListeners.forEach((callback) => callback())
   authChannel.postMessage({ type: "AUTH_CHANGED" })
 }
 
 export function subscribeAuthChange(callback: () => void): () => void {
+  localListeners.add(callback)
   const listener = (event: MessageEvent) => {
     if (event.data?.type === "AUTH_CHANGED") callback()
   }
   authChannel.addEventListener("message", listener)
-  return () => authChannel.removeEventListener("message", listener)
+  return () => {
+    localListeners.delete(callback)
+    authChannel.removeEventListener("message", listener)
+  }
 }
 
 export function login(): void {
