@@ -12,7 +12,21 @@ async function request(token: string, query: string, variables?: Record<string, 
     },
     body: JSON.stringify({ query, variables })
   })
-  return response.json()
+
+  const json = await response.json().catch(() => null)
+
+  // fetch only rejects on network failure, and AniList answers 4xx — rate limits especially —
+  // with a perfectly valid JSON body. Both have to be raised here or callers read a failed
+  // request as a successful one.
+  if (!response.ok) {
+    const detail = json?.errors?.[0]?.message
+    throw new Error(`AniList request failed with ${response.status}${detail ? `: ${detail}` : ""}`)
+  }
+  if (json?.errors?.length) {
+    throw new Error(json.errors.map((error: { message?: string }) => error.message).join("; "))
+  }
+
+  return json
 }
 
 export async function fetchViewer(token: string) {

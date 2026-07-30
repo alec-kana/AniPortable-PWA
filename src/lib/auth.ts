@@ -67,8 +67,16 @@ export async function handleAuthRedirect(): Promise<any | null> {
     return null
   }
 
-  const response = await fetchViewer(accessToken)
-  const user = response?.data?.Viewer
+  // App calls this with .finally(), so a rejection here would surface as an unhandled one.
+  // Treating a failed lookup as "not signed in" leaves the login page up to try again.
+  let user: any
+  try {
+    const response = await fetchViewer(accessToken)
+    user = response?.data?.Viewer
+  } catch (error) {
+    console.error("[auth] Could not load the viewer after the OAuth redirect", error)
+    return null
+  }
 
   save("accessToken", accessToken)
   save("user", user)
