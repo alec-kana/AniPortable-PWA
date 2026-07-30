@@ -147,11 +147,18 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
     const live = sorted.find((entry) => entry.id === entryId)
     if (!live) return false
 
-    const categoryChanged = (config.isCaughtUp(live) ? "caughtUp" : "behind") !== category
-    const orderChanged =
-      orderedSorted.findIndex((entry) => entry.id === entryId) !== sorted.findIndex((entry) => entry.id === entryId)
+    if ((config.isCaughtUp(live) ? "caughtUp" : "behind") !== category) return true
 
-    return categoryChanged || orderChanged
+    // Compared within the grid the card is rendered in, not across the combined list:
+    // when the sections are split, jumping over entries of the other category changes the
+    // combined index without moving the card on screen.
+    const sameGrid = (entry: MediaEntry) =>
+      !separateEntries || (config.isCaughtUp(entry) ? "caughtUp" : "behind") === category
+
+    return (
+      orderedSorted.filter(sameGrid).findIndex((entry) => entry.id === entryId) !==
+      sorted.filter(sameGrid).findIndex((entry) => entry.id === entryId)
+    )
   }
 
   const openEntryPositionWillChange = useMemo(() => {
