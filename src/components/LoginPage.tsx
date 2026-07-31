@@ -17,14 +17,16 @@ export const LoginPage: React.FC = () => {
       <div className="max-w-sm w-full space-y-5">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray mb-2">AniPortable</h1>
-          <p className="text-gray/70">Track your anime progress</p>
+          <p className="text-gray/70">Track your anime and manga progress</p>
         </div>
 
         <div className="bg-white-100 border border-gray/20 rounded-xl p-8 shadow-md">
           <div className="text-center space-y-6">
             <div>
               <h2 className="text-xl font-semibold text-gray mb-2">Welcome Back</h2>
-              <p className="text-sm text-gray/70">Connect your AniList account to get started</p>
+              <p className="text-sm text-gray/70">
+                Connect your AniList account to get started
+              </p>
             </div>
 
             <button
@@ -49,8 +51,8 @@ export const LoginPage: React.FC = () => {
             </button>
 
             <p className="text-xs text-gray/50 leading-relaxed">
-              By logging in, you agree to connect this app with your AniList account.
-              We only access your public profile and anime list data.
+              Progress and score edits save straight to your AniList account —
+              nothing is sent anywhere else.
             </p>
           </div>
         </div>
