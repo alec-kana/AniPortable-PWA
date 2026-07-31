@@ -7,7 +7,7 @@ import { MediaCard } from "./MediaCard"
 import { StateMessage } from "./StateMessage"
 import { useSettings } from "../contexts/SettingsContext"
 import { useAniListData, type ListKey } from "../contexts/AniListDataContext"
-import { queueUpdate } from "../lib/syncQueue"
+import { getPendingUpdates, queueUpdate, type QueuedUpdate } from "../lib/syncQueue"
 import { useStableOrder } from "../hooks/useStableOrder"
 import { getErrorMessage } from "../lib/apolloErrors"
 import { VIEWER_QUERY } from "../lib/queries"
@@ -35,6 +35,36 @@ export type MediaListConfig = {
 }
 
 type OpenEntryState = { id: number; category: Category }
+
+// english/native are null for plenty of media, and titleLanguage comes from AniList's own
+// options — a *_STYLISED value has no matching key here at all. Either way a missing title would
+// blank the card and crash the sort's localeCompare. `||` not `??`, so "" falls through too.
+const pickTitle = (title: Record<string, string | null>, language: string): string =>
+  title[language.toLowerCase()] || title.romaji || title.native || title.english || ""
+
+// The optimistic update is React state, so a reload throws it away and falls back to what the
+// server has — still the pre-edit value while anything is queued. The queue is the durable copy
+// of that same intent, so re-apply it over the fetched list.
+const applyPendingEdits = (entries: any[], pending: Map<number, QueuedUpdate>) => {
+  if (pending.size === 0) return entries
+
+  return entries
+    // A queued COMPLETED would otherwise reappear: the query asks for CURRENT, and the server
+    // still lists it there until the flush lands.
+    .filter((entry) => {
+      const status = pending.get(entry.id)?.status
+      return !status || status === "CURRENT"
+    })
+    .map((entry) => {
+      const edit = pending.get(entry.id)
+      if (!edit) return entry
+      return {
+        ...entry,
+        ...(edit.progress !== undefined && { progress: edit.progress }),
+        ...(edit.score !== undefined && { score: edit.score })
+      }
+    })
+}
 
 export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) => {
   const {
@@ -101,12 +131,22 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
     if (cachedList && !isDirty) return
 
     if (isDirty) {
-      refetch().then((res) => {
-        setList(config.listKey, res.data?.MediaListCollection?.lists?.[0]?.entries ?? [])
-        clearDirty(config.listKey)
-      })
+      refetch()
+        .then((res) => {
+          setList(
+            config.listKey,
+            applyPendingEdits(res.data?.MediaListCollection?.lists?.[0]?.entries ?? [], getPendingUpdates())
+          )
+          clearDirty(config.listKey)
+        })
+        // refetch() rejects on a network error. Stays dirty so the next mount retries;
+        // useQuery's own error already drives the StateMessage.
+        .catch((err) => console.error("[MediaListTab] refetch failed:", err))
     } else if (data) {
-      setList(config.listKey, data.MediaListCollection?.lists?.[0]?.entries ?? [])
+      setList(
+        config.listKey,
+        applyPendingEdits(data.MediaListCollection?.lists?.[0]?.entries ?? [], getPendingUpdates())
+      )
     }
   }, [userId, isDirty, data, refetch, setList, clearDirty, config.listKey])
 
@@ -115,7 +155,7 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
   const entries = useMemo<MediaEntry[]>(() => {
     return rawEntries.map((entry: any) => ({
       id: entry.id,
-      title: entry.media.title[titleLanguage.toLowerCase()],
+      title: pickTitle(entry.media.title, titleLanguage),
       cover: entry.media.coverImage.extraLarge ?? entry.media.coverImage.large,
       progress: entry.progress,
       score: entry.score || 0,

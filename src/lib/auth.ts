@@ -1,32 +1,12 @@
 import { fetchViewer } from "./anilist"
+import { broadcastAuthChange } from "./authChannel"
 import { load, save, remove } from "./storage"
 import { flushAllPendingUpdates } from "./syncQueue"
 
 const CLIENT_ID = import.meta.env.VITE_ANILIST_CLIENT_ID as string | undefined
 const OAUTH_STATE_KEY = "aniportable_oauth_state"
 
-const authChannel = new BroadcastChannel("aniportable-auth")
-// BroadcastChannel never delivers back to the sender, so same-tab listeners
-// (AppContent's useAuth vs. SettingsTab's) are notified directly; the channel
-// only covers other tabs.
-const localListeners = new Set<() => void>()
-
-export function broadcastAuthChange(): void {
-  localListeners.forEach((callback) => callback())
-  authChannel.postMessage({ type: "AUTH_CHANGED" })
-}
-
-export function subscribeAuthChange(callback: () => void): () => void {
-  localListeners.add(callback)
-  const listener = (event: MessageEvent) => {
-    if (event.data?.type === "AUTH_CHANGED") callback()
-  }
-  authChannel.addEventListener("message", listener)
-  return () => {
-    localListeners.delete(callback)
-    authChannel.removeEventListener("message", listener)
-  }
-}
+export { broadcastAuthChange, subscribeAuthChange } from "./authChannel"
 
 export function login(): void {
   if (!CLIENT_ID) {
@@ -80,6 +60,11 @@ export async function handleAuthRedirect(): Promise<any | null> {
 
   save("accessToken", accessToken)
   save("user", user)
+
+  // A session that expired with edits still queued leaves them in storage, and initSyncQueue's
+  // boot flush already ran with no token to send them. Not awaited — the login shouldn't wait
+  // on a mutation round trip.
+  flushAllPendingUpdates()
 
   broadcastAuthChange()
   return user

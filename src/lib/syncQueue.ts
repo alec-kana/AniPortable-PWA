@@ -1,4 +1,5 @@
-import { AniListRequestError, saveBulkEntries, type PendingUpdate } from "./anilist"
+import { AniListRequestError, isInvalidTokenError, saveBulkEntries, type PendingUpdate } from "./anilist"
+import { clearInvalidSession } from "./authChannel"
 import { load, save, remove } from "./storage"
 
 const FLUSH_DEBOUNCE_MS = 5000
@@ -11,10 +12,13 @@ const MAX_QUEUE_AGE_MS = 24 * 60 * 60 * 1000
 
 // queuedAt rides along for the age check; saveBulkEntries reads the known fields by name and
 // ignores it.
-type QueuedUpdate = PendingUpdate & { queuedAt: number }
+export type QueuedUpdate = PendingUpdate & { queuedAt: number }
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 const pendingUpdates = new Map<number, QueuedUpdate>()
+// Held separately for the length of a request: pendingUpdates is cleared before the await, so
+// without this a list load landing mid-flush would read an empty queue and skip the overlay.
+let inFlightUpdates = new Map<number, QueuedUpdate>()
 let initialized = false
 
 export type SyncedEntry = { id: number; updatedAt: number }
@@ -103,6 +107,7 @@ export async function flushAllPendingUpdates(): Promise<void> {
   if (!token) return
 
   const updatesToFlush = new Map(pendingUpdates)
+  inFlightUpdates = updatesToFlush
   pendingUpdates.clear()
 
   try {
@@ -116,11 +121,17 @@ export async function flushAllPendingUpdates(): Promise<void> {
 
     const landed = reportSynced(error instanceof AniListRequestError ? error.data : null)
 
+    // A dead token shares the 400 of a rejected edit, so it has to be excluded first —
+    // otherwise every queued edit burns an attempt and is dropped.
+    const authFailed = isInvalidTokenError(error)
+
     // Only a request AniList rejected as invalid counts against an entry. Everything else —
-    // offline, an expired token, a rate limit, and the 403 AniList answers with while its API
-    // is temporarily disabled — says nothing about the edit, so it retries until it ages out.
+    // offline, a dead token, a rate limit, and the 403 AniList answers with while its API is
+    // temporarily disabled — says nothing about the edit, so it retries until it ages out.
     const isPermanentRejection =
-      error instanceof AniListRequestError && (error.status === 400 || error.status === 404)
+      !authFailed &&
+      error instanceof AniListRequestError &&
+      (error.status === 400 || error.status === 404)
 
     for (const [id, data] of updatesToFlush) {
       if (landed.has(id)) {
@@ -143,7 +154,24 @@ export async function flushAllPendingUpdates(): Promise<void> {
     }
 
     persistPendingUpdates()
+
+    // Only once the queue is safely mirrored: retrying a dead token just burns requests until
+    // the age-out, so drop the session and let the app prompt a re-login instead.
+    if (authFailed) clearInvalidSession()
+  } finally {
+    // After the catch, so anything re-queued is already back in pendingUpdates.
+    inFlightUpdates = new Map()
   }
+}
+
+// The UI's optimistic state is React-only, so a reload falls back to the server value while an
+// edit is still queued. This is the durable copy of the same intent, for a fresh mount to
+// re-apply over the fetched list. Copied so callers can't mutate the live queue.
+export function getPendingUpdates(): Map<number, QueuedUpdate> {
+  const merged = new Map(inFlightUpdates)
+  // pendingUpdates last: an edit made during the request supersedes the one being sent.
+  for (const [id, data] of pendingUpdates) merged.set(id, data)
+  return merged
 }
 
 export function queueUpdate(payload: { entryId: number } & PendingUpdate): void {

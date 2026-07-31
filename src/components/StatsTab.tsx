@@ -112,10 +112,14 @@ export const StatsTab: React.FC = () => {
   // needs a request of its own.
   const syncStats = (key: ListKey, isDirty: boolean, data: any, refetch: () => Promise<any>) => {
     if (isDirty) {
-      refetch().then((res) => {
-        cacheScoredEntries(key, res.data)
-        clearDirty(key)
-      })
+      refetch()
+        .then((res) => {
+          cacheScoredEntries(key, res.data)
+          clearDirty(key)
+        })
+        // refetch() rejects on a network error. Stays dirty so the next mount retries;
+        // useQuery's own error already drives the StateMessage.
+        .catch((err) => console.error(`[StatsTab] ${key} refetch failed:`, err))
     } else if (data) {
       cacheScoredEntries(key, data)
     }

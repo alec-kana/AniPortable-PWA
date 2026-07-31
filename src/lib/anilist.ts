@@ -7,14 +7,24 @@ export class AniListRequestError extends Error {
   // An aliased multi-mutation can partly succeed, so the payload still names which entries
   // landed even though the request as a whole failed.
   readonly data: unknown
+  // AniList's first error message, unwrapped — it answers both a rejected edit and a dead
+  // token with 400, and only the body tells them apart.
+  readonly detail: string | undefined
 
-  constructor(message: string, status: number, data: unknown) {
+  constructor(message: string, status: number, data: unknown, detail?: string) {
     super(message)
     this.name = "AniListRequestError"
     this.status = status
     this.data = data
+    this.detail = detail
   }
 }
+
+// An expired or revoked token, which AniList reports as 400 rather than 401.
+export const isInvalidTokenError = (error: unknown): boolean =>
+  error instanceof AniListRequestError &&
+  error.status === 400 &&
+  !!error.detail?.toLowerCase().includes("invalid token")
 
 async function request(token: string, query: string, variables?: Record<string, unknown>) {
   const response = await fetch(ANILIST_GRAPHQL_URL, {
@@ -37,14 +47,16 @@ async function request(token: string, query: string, variables?: Record<string, 
     throw new AniListRequestError(
       `AniList request failed with ${response.status}${detail ? `: ${detail}` : ""}`,
       response.status,
-      json?.data
+      json?.data,
+      detail
     )
   }
   if (json?.errors?.length) {
     throw new AniListRequestError(
       json.errors.map((error: { message?: string }) => error.message).join("; "),
       response.status,
-      json?.data
+      json?.data,
+      json.errors[0]?.message
     )
   }
 

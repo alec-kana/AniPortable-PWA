@@ -94,7 +94,9 @@ export const ScoreChart: React.FC<Props> = ({ data, allScores }) => {
                 axisLine={false}
                 tickLine={false}
                 width={0}
-                domain={[0, maxCount + Math.ceil(maxCount * 0.2)]}
+                // Floor of 1 so an all-zero filter (e.g. a year with no entries) doesn't
+                // collapse the axis to [0, 0]
+                domain={[0, Math.max(1, maxCount + Math.ceil(maxCount * 0.2))]}
               />
               <Bar
                 dataKey="count"
