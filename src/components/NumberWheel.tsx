@@ -127,7 +127,9 @@ export const NumberWheel = forwardRef<NumberWheelHandle, Props>(function NumberW
   const commitEdit = () => {
     const parsed = parseFloat(tempValue)
     if (!isNaN(parsed)) {
-      const clamped = Math.min(Math.max(parsed, min), max)
+      // Capped at the same row scrolling stops on, not `max` — typing was the one
+      // way past an unreleased episode.
+      const clamped = Math.min(Math.max(parsed, min), values[maxSelectableIndex])
       const snapped = +(Math.round((clamped - min) / step) * step + min).toFixed(decimals)
       if (snapped !== value) onChange(snapped)
     }
