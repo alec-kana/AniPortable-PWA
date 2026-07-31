@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react"
 import { useQuery, gql, type ApolloError } from "@apollo/client"
 import { load, save } from "../lib/storage"
-import { VIEWER_QUERY } from "../lib/queries"
+import { useAuth } from "../hooks/useAuth"
 
 const SETTINGS_QUERY = gql`
   query ($userId: Int) {
@@ -84,10 +84,12 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [showAnimeStats, setShowAnimeStats] = usePersistedState('showAnimeStats', true)
   const [showMangaStats, setShowMangaStats] = usePersistedState('showMangaStats', true)
 
-  const { data: viewerData, error: viewerError } = useQuery(VIEWER_QUERY)
-  const userId = viewerData?.Viewer?.id
+  // Login already stored the viewer, so the id is local. Querying it instead put a
+  // round trip in front of every request that needs it — the whole first wave.
+  const { user } = useAuth()
+  const userId = user?.id
 
-  const { data: settingsData, loading, error: settingsError } = useQuery(SETTINGS_QUERY, {
+  const { data: settingsData, loading, error } = useQuery(SETTINGS_QUERY, {
     variables: { userId },
     skip: !userId
   })
@@ -133,7 +135,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       setShowAnimeStats,
       setShowMangaStats,
       loading,
-      error: viewerError || settingsError
+      error
     }}>
       {children}
     </SettingsContext.Provider>

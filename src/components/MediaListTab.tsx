@@ -10,7 +10,7 @@ import { useAniListData, type ListKey } from "../contexts/AniListDataContext"
 import { getPendingUpdates, queueUpdate, type QueuedUpdate } from "../lib/syncQueue"
 import { useStableOrder } from "../hooks/useStableOrder"
 import { getErrorMessage } from "../lib/apolloErrors"
-import { VIEWER_QUERY } from "../lib/queries"
+import { useAuth } from "../hooks/useAuth"
 import type { MediaEntry } from "../lib/types"
 
 // Anime with nothing left to watch, manga with nothing left to read.
@@ -103,8 +103,9 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
     targetTimeoutRef.current = window.setTimeout(() => setAnimatingTargetId(null), 500)
   }
 
-  const { data: viewerData, loading: viewerLoading, error: viewerError } = useQuery(VIEWER_QUERY)
-  const userId = viewerData?.Viewer?.id
+  // Login already stored the viewer, so the id is local — see SettingsContext.
+  const { user } = useAuth()
+  const userId = user?.id
 
   const { data, loading, error, refetch } = useQuery(config.listQuery, {
     variables: { userId },
@@ -277,10 +278,10 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
     })
   }
 
-  if (viewerLoading || loading) return <StateMessage icon={Loader2} spin message={config.labels.loading} />
-  if (viewerError || error)
+  if (loading) return <StateMessage icon={Loader2} spin message={config.labels.loading} />
+  if (error)
     return (
-      <StateMessage icon={AlertCircle} tone="error" message={getErrorMessage(viewerError || error, config.labels.error)} />
+      <StateMessage icon={AlertCircle} tone="error" message={getErrorMessage(error, config.labels.error)} />
     )
 
   const updateLocalList = (entryId: number, updates: Record<string, unknown>) => {

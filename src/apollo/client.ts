@@ -26,8 +26,8 @@ const authErrorLink = onError(({ networkError }) => {
   const serverError = networkError as { statusCode?: number; result?: any } | null
   const bodyMessage: string | undefined = serverError?.result?.errors?.[0]?.message
 
-  // Strictly 400 + "Invalid token". Being logged out is a 401 "Unauthorized." instead, so this
-  // can't misfire behind LoginPage, where SettingsContext's Viewer query runs regardless of auth.
+  // Strictly 400 + "Invalid token". Nothing queries while logged out (every query is
+  // skip: !userId, and the id comes from storage), but a dead token still trips this.
   if (serverError?.statusCode !== 400) return
   if (!bodyMessage?.toLowerCase().includes("invalid token")) return
 

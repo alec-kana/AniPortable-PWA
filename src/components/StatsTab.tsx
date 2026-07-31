@@ -8,7 +8,7 @@ import { MonitorCheck, BookOpen, Percent, BarChart3, Loader2, AlertCircle, XCirc
 import * as Slider from "@radix-ui/react-slider"
 import { StateMessage } from "./StateMessage"
 import { getErrorMessage } from "../lib/apolloErrors"
-import { VIEWER_QUERY } from "../lib/queries"
+import { useAuth } from "../hooks/useAuth"
 
 const COMPLETED_ANIME_QUERY = gql`
   query ($userId: Int) {
@@ -88,8 +88,9 @@ export const StatsTab: React.FC = () => {
   const [season, setSeason] = useState<string>("All")
   const [isSliderActive, setIsSliderActive] = useState(false)
 
-  const { data: viewerData, loading: viewerLoading, error: viewerError } = useQuery(VIEWER_QUERY)
-  const userId = viewerData?.Viewer?.id
+  // Login already stored the viewer, so the id is local — see SettingsContext.
+  const { user } = useAuth()
+  const userId = user?.id
 
   const { data: animeData, loading: animeLoading, error: animeError, refetch: refetchAnime } = useQuery(
     COMPLETED_ANIME_QUERY,
@@ -175,14 +176,14 @@ export const StatsTab: React.FC = () => {
     )
   }
 
-  if (viewerLoading || animeLoading || mangaLoading)
+  if (animeLoading || mangaLoading)
     return <StateMessage icon={Loader2} spin message="Loading your stats..." />
-  if (viewerError || animeError || mangaError)
+  if (animeError || mangaError)
     return (
       <StateMessage
         icon={AlertCircle}
         tone="error"
-        message={getErrorMessage(viewerError || animeError || mangaError, "Error loading stats.")}
+        message={getErrorMessage(animeError || mangaError, "Error loading stats.")}
       />
     )
 
