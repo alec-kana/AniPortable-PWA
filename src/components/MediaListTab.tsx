@@ -354,7 +354,7 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
               return (
                 <motion.div
                   key={entry.id}
-                  initial={isTarget ? { opacity: 0, y: -50, zIndex: 10 } : false}
+                  initial={isTarget ? { opacity: 0, y: -36, zIndex: 10 } : false}
                   animate={
                     isTarget
                       ? {
@@ -372,9 +372,10 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
                   exit={{
                     opacity: 0,
                     y: -36,
-                    transition: { duration: willMove ? 0.2 : 0.18, ease: "easeIn" }
+                    transition: { duration: 0 }
                   }}
                   transition={{ duration: 0 }}
+                  style={{ pointerEvents: "none" }}
                 >
                   <MediaCard
                     entry={entry}
