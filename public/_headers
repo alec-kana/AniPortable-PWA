@@ -1,0 +1,10 @@
+# Netlify / Cloudflare Pages read this file from the build output. Vercel ignores it and reads
+# vercel.json instead — whichever host this ends up on, the other file is inert.
+#
+# The access token lives in localStorage, which any script running on this origin can read, so
+# script-src is the thing actually holding XSS back. The build emits no inline scripts, so
+# 'self' needs no hashes or 'unsafe-inline'.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://graphql.anilist.co; font-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

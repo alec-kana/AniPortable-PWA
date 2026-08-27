@@ -176,8 +176,8 @@ export const StatsTab: React.FC = () => {
     )
   }
 
-  if (animeLoading || mangaLoading)
-    return <StateMessage icon={Loader2} spin message="Loading your stats..." />
+  // Error first: a failed refetch leaves the dirty flag set, so checking it second would spin
+  // forever instead of saying what went wrong.
   if (animeError || mangaError)
     return (
       <StateMessage
@@ -186,6 +186,10 @@ export const StatsTab: React.FC = () => {
         message={getErrorMessage(animeError || mangaError, "Error loading stats.")}
       />
     )
+  // The dirty flags count as loading: a refetch leaves useQuery's own flag false, so without
+  // them a stat tile would read "0" / "0.00" for the length of the round-trip.
+  if (animeLoading || mangaLoading || dirty.animeStats || dirty.mangaStats)
+    return <StateMessage icon={Loader2} spin message="Loading your stats..." />
 
   return (
     <div className="p-2 flex-1 flex flex-col">

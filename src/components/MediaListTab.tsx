@@ -278,11 +278,15 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
     })
   }
 
-  if (loading) return <StateMessage icon={Loader2} spin message={config.labels.loading} />
+  // Error first: a failed refetch leaves the dirty flag set, so checking it second would spin
+  // forever instead of saying what went wrong.
   if (error)
     return (
       <StateMessage icon={AlertCircle} tone="error" message={getErrorMessage(error, config.labels.error)} />
     )
+  // isDirty counts as loading: a refetch leaves useQuery's own flag false, so without it the
+  // stale list stays on screen until the request lands.
+  if (loading || isDirty) return <StateMessage icon={Loader2} spin message={config.labels.loading} />
 
   const updateLocalList = (entryId: number, updates: Record<string, unknown>) => {
     if (cachedList) {

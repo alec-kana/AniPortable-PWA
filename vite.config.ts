@@ -6,12 +6,19 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // injectManifest, not generateSW: src/sw.ts owns a `sync` handler and a hand-rolled
+      // cache for AniList's POST-only GraphQL endpoint, neither of which is expressible as
+      // generateSW config.
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
       registerType: "autoUpdate",
       includeAssets: ["icons/icon1024.png"],
       manifest: {
         name: "AniPortable",
         short_name: "AniPortable",
         description: "Track and update your AniList anime & manga on the go.",
+        id: "/",
         start_url: "/",
         display: "standalone",
         background_color: "#12162a",
@@ -22,10 +29,7 @@ export default defineConfig({
           { src: "icons/icon1024.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
         ]
       },
-      workbox: {
-        // Sync-queue durability is handled in-page (src/lib/syncQueue.ts) via
-        // localStorage + visibilitychange/pagehide, not by this service
-        // worker — this SW only precaches static assets for installability.
+      injectManifest: {
         globPatterns: ["**/*.{js,css,html,png,svg,ico}"]
       }
     })

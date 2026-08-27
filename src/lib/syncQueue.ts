@@ -1,8 +1,15 @@
 import { AniListRequestError, isInvalidTokenError, saveBulkEntries, type PendingUpdate } from "./anilist"
 import { clearInvalidSession } from "./authChannel"
 import { load, save, remove } from "./storage"
+import { writeSyncMirror } from "./syncMirror"
 
 const FLUSH_DEBOUNCE_MS = 5000
+// The extension retries a failed flush from a chrome.alarm, which fires whether or not the
+// popup is open. The web has no equivalent, so the same backoff runs on two weaker halves: this
+// timer while a page is open, and Background Sync (Chromium only) once it isn't.
+const RETRY_BASE_MS = 30_000 // 30s, matching the floor Chrome clamps an alarm to
+const RETRY_MAX_MS = 30 * 60_000
+const BACKGROUND_SYNC_TAG = "flush-pending-updates"
 // An entry AniList refuses as invalid would otherwise re-queue forever and take every edit
 // batched alongside it down with it.
 const MAX_FLUSH_ATTEMPTS = 3
@@ -56,12 +63,44 @@ export function notifyCardClosed(): void {
 
 const failedAttempts = new Map<number, number>()
 
+let retryTimer: ReturnType<typeof setTimeout> | null = null
+let flushFailures = 0
+
+// The debounce timer only ever covers a flush that hasn't happened yet. A flush that failed —
+// offline, rate-limited — needs its own follow-up, or the batch sits there until the tab is
+// backgrounded or another edit comes in.
+function armRetryTimer(): void {
+  if (retryTimer) {
+    clearTimeout(retryTimer)
+    retryTimer = null
+  }
+  if (pendingUpdates.size === 0) return
+  const delay = Math.min(RETRY_BASE_MS * 2 ** flushFailures, RETRY_MAX_MS)
+  retryTimer = setTimeout(flushAllPendingUpdates, delay)
+}
+
+// Wakes the service worker to retry once no page is left to run the timer above. Unsupported on
+// Safari/iOS, which is why it's an extra layer rather than the mechanism.
+async function registerBackgroundSync(): Promise<void> {
+  if (!("serviceWorker" in navigator)) return
+  try {
+    const registration = await navigator.serviceWorker.ready
+    if ("sync" in registration) await (registration as any).sync.register(BACKGROUND_SYNC_TAG)
+  } catch {
+    // Unsupported, or the user blocked background activity for the site.
+  }
+}
+
 function persistPendingUpdates(): void {
   if (pendingUpdates.size === 0) {
     remove("pendingUpdates")
+    writeSyncMirror(null)
     return
   }
-  save("pendingUpdates", Array.from(pendingUpdates.entries()))
+  const updates = Array.from(pendingUpdates.entries())
+  save("pendingUpdates", updates)
+  // Mirrored on every persist so a worker woken with no page open always has a current copy.
+  writeSyncMirror({ token: load<string>("accessToken") ?? "", updates })
 }
 
 function dropStaleUpdates(): void {
@@ -114,8 +153,10 @@ export async function flushAllPendingUpdates(): Promise<void> {
     const result = await saveBulkEntries(token, updatesToFlush)
     reportSynced(result?.data)
     for (const id of updatesToFlush.keys()) failedAttempts.delete(id)
+    flushFailures = 0
     // Not a plain remove: edits queued while the request was in flight need persisting too.
     persistPendingUpdates()
+    armRetryTimer()
   } catch (error) {
     console.error("[syncQueue] Failed to flush updates, will retry later:", error)
 
@@ -154,6 +195,12 @@ export async function flushAllPendingUpdates(): Promise<void> {
     }
 
     persistPendingUpdates()
+
+    // Every failed flush schedules its own follow-up, independent of the debounce timer, the
+    // visibility listener, or another edit coming in.
+    flushFailures += 1
+    armRetryTimer()
+    registerBackgroundSync()
 
     // Only once the queue is safely mirrored: retrying a dead token just burns requests until
     // the age-out, so drop the session and let the app prompt a re-login instead.
@@ -195,11 +242,17 @@ export function initSyncQueue(): void {
 
   // Safety nets for edits that never hit the debounce: tab backgrounded or
   // page unloading. Both are no-ops once the queue is empty.
+  // armRetryTimer alongside each, since a backgrounded tab still runs timers (throttled) and
+  // the flush these trigger can fail with nothing left to notice.
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) flushAllPendingUpdates()
+    if (document.hidden) {
+      flushAllPendingUpdates()
+      armRetryTimer()
+    }
   })
   window.addEventListener("pagehide", () => {
     flushAllPendingUpdates()
+    armRetryTimer()
   })
 
   const saved = load<[number, Partial<QueuedUpdate>][]>("pendingUpdates")
@@ -209,6 +262,9 @@ export function initSyncQueue(): void {
       // treated as infinitely old and thrown away.
       pendingUpdates.set(id, { ...data, queuedAt: data.queuedAt ?? Date.now() })
     }
+    // Re-mirrors the restored queue against whatever token is current, which the last session
+    // may not have had when it wrote it.
+    persistPendingUpdates()
     flushAllPendingUpdates()
   }
 }

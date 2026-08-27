@@ -62,10 +62,10 @@ export const AniListDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return () => setEntriesSyncedHandler(null)
   }, [])
 
-  // Empties the cached list too, so a stale render can't flash old entries
-  // while the refetch triggered by the dirty flag is in flight.
+  // The flag alone drives the refetch, and consumers treat it as loading. Blanking the list
+  // too made the refetch window render as an empty list — "0 / 0.00" in Stats reads as a
+  // real answer.
   const markDirty = useCallback((key: ListKey) => {
-    setLists((prev) => ({ ...prev, [key]: [] }))
     setDirty((prev) => ({ ...prev, [key]: true }))
   }, [])
 

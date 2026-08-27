@@ -58,10 +58,11 @@ interface SettingsContextType {
 
 const SettingsContext = createContext<SettingsContextType | null>(null)
 
-// Local-only settings (the ones AniList doesn't store) read straight from
-// localStorage on first render and write back on every change.
-function usePersistedState<T>(key: string, fallback: T) {
-  const [value, setValue] = useState<T>(() => load<T>(key) ?? fallback)
+// Settings read straight from localStorage on first render and write back on every change.
+// seedFromStorage is how the AniList-owned five opt out of the cache when it belongs to a
+// different account.
+function usePersistedState<T>(key: string, fallback: T, seedFromStorage = true) {
+  const [value, setValue] = useState<T>(() => (seedFromStorage ? load<T>(key) ?? fallback : fallback))
 
   const set = (next: T) => {
     setValue(next)
@@ -72,11 +73,22 @@ function usePersistedState<T>(key: string, fallback: T) {
 }
 
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [profileColor, setProfileColor] = useState('blue')
-  const [titleLanguage, setTitleLanguage] = useState('ROMAJI')
-  const [displayAdultContent, setDisplayAdultContent] = useState(false)
-  const [scoreFormat, setScoreFormat] = useState('POINT_10')
-  const [rowOrder, setRowOrder] = useState('score')
+  // Login already stored the viewer, so the id is local. Querying it instead put a
+  // round trip in front of every request that needs it — the whole first wave.
+  const { user } = useAuth()
+  const userId = user?.id
+
+  // AniList owns the five below, but they're mirrored locally so the next open paints them
+  // instead of the defaults. The mirror is stamped with the account it came from, so a second
+  // account on this device never inherits them — a cached score format renders visibly wrong
+  // numbers. Read once: the provider only ever mounts with the user already resolved.
+  const [ownsCachedPrefs] = useState(() => load<number>('prefsUserId') === userId)
+
+  const [profileColor, setProfileColor] = usePersistedState('profileColor', 'blue', ownsCachedPrefs)
+  const [titleLanguage, setTitleLanguage] = usePersistedState('titleLanguage', 'ROMAJI', ownsCachedPrefs)
+  const [displayAdultContent, setDisplayAdultContent] = usePersistedState('displayAdultContent', false, ownsCachedPrefs)
+  const [scoreFormat, setScoreFormat] = usePersistedState('scoreFormat', 'POINT_10', ownsCachedPrefs)
+  const [rowOrder, setRowOrder] = usePersistedState('rowOrder', 'score', ownsCachedPrefs)
 
   const [manualCompletion, setManualCompletion] = usePersistedState('manualCompletion', false)
   const [separateEntries, setSeparateEntries] = usePersistedState('separateEntries', false)
@@ -84,25 +96,22 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [showAnimeStats, setShowAnimeStats] = usePersistedState('showAnimeStats', true)
   const [showMangaStats, setShowMangaStats] = usePersistedState('showMangaStats', true)
 
-  // Login already stored the viewer, so the id is local. Querying it instead put a
-  // round trip in front of every request that needs it — the whole first wave.
-  const { user } = useAuth()
-  const userId = user?.id
-
   const { data: settingsData, loading, error } = useQuery(SETTINGS_QUERY, {
     variables: { userId },
     skip: !userId
   })
 
+  // The server's answer always wins over the mirror, and re-stamps it with the owning account.
   useEffect(() => {
-    if (!settingsData?.User?.options) return
+    if (!settingsData?.User?.options || !userId) return
     const { options, mediaListOptions } = settingsData.User
     setProfileColor(options.profileColor || 'blue')
     setTitleLanguage(options.titleLanguage || 'ROMAJI')
     setDisplayAdultContent(options.displayAdultContent || false)
     setScoreFormat(mediaListOptions.scoreFormat || 'POINT_10')
     setRowOrder(mediaListOptions.rowOrder || 'score')
-  }, [settingsData])
+    save('prefsUserId', userId)
+  }, [settingsData, userId])
 
   const setTabVisibility = (visibility: TabVisibility) => {
     setTabVisibilityValue(visibility)

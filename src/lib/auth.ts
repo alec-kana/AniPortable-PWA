@@ -75,6 +75,9 @@ export async function logout(): Promise<void> {
   await flushAllPendingUpdates()
   remove("accessToken")
   remove("user")
+  // The service worker caches this account's list responses to serve them offline, so they
+  // have to go too — otherwise the next account to open the app offline sees them.
+  caches.delete("anilist-api").catch(() => {})
   broadcastAuthChange()
 }
 

@@ -87,6 +87,8 @@ export const ScoreChart: React.FC<Props> = ({ data, allScores }) => {
               data={completeData}
               margin={{ top: 10, right: 10, bottom: 0, left: 10 }}
               style={{ outline: 'none', pointerEvents: 'none' }}
+              // recharts 3 defaults this on, which makes a display-only chart a tab stop
+              accessibilityLayer={false}
             >
               <YAxis
                 allowDecimals={false}
@@ -130,6 +132,7 @@ export const ScoreChart: React.FC<Props> = ({ data, allScores }) => {
               data={completeData}
               margin={{ top: 0, right: 10, bottom: 0, left: 10 }}
               style={{ outline: 'none', pointerEvents: 'none' }}
+              accessibilityLayer={false}
             >
               <XAxis
                 dataKey="score"

@@ -14,6 +14,7 @@ AniPortable PWA brings the extension's core idea — tracking and updating your 
 - **Visual stats** — anime and manga stats as bar charts, with year/season filters for anime
 - **Flexible completion** — enable manual completion to keep entries in your list after finishing (handy for reviews/screenshots), then mark them complete with one tap
 - **Installable** — add it to your home screen like a native app (PWA manifest + service worker via `vite-plugin-pwa`)
+- **Works offline** — the service worker serves your last-loaded lists and stats when the network is gone, and edits made offline are queued, retried with backoff, and flushed via Background Sync once you reconnect
 
 ## Getting Started
 
@@ -32,6 +33,29 @@ Unlike the extension (which needs one AniList app per browser target), this only
 | `npm run build` | Typecheck, then build the production PWA to `dist/` |
 | `npm run preview` | Serve the production build locally |
 | `npm run typecheck` | Typecheck only |
+
+## Deploying
+
+The build is a static bundle — any static host with HTTPS works (the service worker won't
+register without it). Deploy at the **root** of a domain: `start_url` and `scope` are `/`, and a
+project subpath would need Vite's `base` changed to match or installability breaks silently.
+
+1. Register a second AniList app with its **Redirect URL** set to your exact final origin
+   (`https://yourdomain.com/` — the match is exact-string, so a trailing-slash mismatch fails
+   silently), and put its `client_id` in `.env.production`.
+2. `npm run build` and deploy `dist/`.
+3. CSP headers ship with the repo: `public/_headers` for Netlify/Cloudflare Pages, `vercel.json`
+   for Vercel. Whichever host you use, the other file is inert.
+
+## Privacy
+
+There is no backend. Everything the app stores stays on your device in `localStorage` — your
+AniList access token, the settings AniList owns (mirrored so the app paints instantly instead of
+flashing defaults), your device-only preferences, and any edits still queued for sync. The only
+network requests it makes are to AniList's own GraphQL API (`graphql.anilist.co`) and to
+AniList's CDN for cover art. Nothing is sent anywhere else, and there is no analytics or
+tracking of any kind. Logging out clears the token, the stored viewer, and the offline cache of
+your lists.
 
 ## Tech Stack
 

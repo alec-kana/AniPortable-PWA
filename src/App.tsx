@@ -8,6 +8,7 @@ import { MangaTab } from "./components/MangaTab"
 import { SettingsTab } from "./components/SettingsTab"
 import { LoginPage } from "./components/LoginPage"
 import { BottomNav, type TabKey } from "./components/BottomNav"
+import { OfflineNotice } from "./components/OfflineNotice"
 import { useAuth } from "./hooks/useAuth"
 import { handleAuthRedirect } from "./lib/auth"
 import { SquareArrowOutUpRight, Loader2 } from "lucide-react"
@@ -81,6 +82,8 @@ function AppContent() {
           {SelectedComponent && <SelectedComponent />}
         </Suspense>
       </div>
+
+      <OfflineNotice />
 
       <BottomNav
         tabs={visibleTabs.map(({ key }) => key)}

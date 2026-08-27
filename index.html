@@ -4,8 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
     <meta name="theme-color" content="#242538" />
+    <meta name="description" content="Track and update your AniList anime and manga on the go." />
     <link rel="icon" type="image/png" href="/icons/icon128.png" />
-    <link rel="apple-touch-icon" href="/icons/icon128.png" />
+
+    <!-- iOS ignores the manifest: without these, Add to Home Screen opens inside Safari's
+         chrome instead of standalone, and 180x180 is the size Apple actually asks for. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="AniPortable" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon180.png" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="AniPortable" />
+    <meta property="og:description" content="Track and update your AniList anime and manga on the go." />
+    <meta property="og:image" content="/icons/icon1024.png" />
+
     <title>AniPortable</title>
   </head>
   <body>
