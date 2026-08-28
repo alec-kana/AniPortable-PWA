@@ -351,7 +351,7 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
             {title} ({list.length})
           </h3>
         </div>
-        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2">
+        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2">
           <AnimatePresence mode="popLayout" initial={false}>
             {list.map((entry) => {
               const willMove = openEntry?.id === entry.id && openEntryPositionWillChange
