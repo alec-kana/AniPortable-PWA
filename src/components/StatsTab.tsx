@@ -198,7 +198,10 @@ export const StatsTab: React.FC = () => {
       <div className="mb-8 mt-4">
         <h3 className="text-xl text-gray font-bold text-center mb-2">Anime Stats</h3>
 
-        <div className="flex justify-center gap-[114px] m-4 -translate-x-2">
+        {/* The 114px gap is wider than a phone can hold - the two tiles overflow and their
+            labels wrap. Below sm they sit at the row edges instead, inset a little further
+            than the chart card, so the space between them is whatever is left at that width. */}
+        <div className="flex justify-between my-4 mx-8 sm:justify-center sm:gap-[114px] sm:m-4 sm:-translate-x-2">
           <StatTile icon={MonitorCheck} value={filteredAnime.length} label="Total Anime" color={profileColor} />
           <StatTile icon={Percent} value={mean(filteredAnime).toFixed(2)} label="Mean Score" color={profileColor} />
         </div>
@@ -273,7 +276,10 @@ export const StatsTab: React.FC = () => {
       <div>
         <h3 className="text-xl text-gray font-bold text-center mb-2">Manga Stats</h3>
 
-        <div className="flex justify-center gap-[114px] m-4 -translate-x-2">
+        {/* The 114px gap is wider than a phone can hold - the two tiles overflow and their
+            labels wrap. Below sm they sit at the row edges instead, inset a little further
+            than the chart card, so the space between them is whatever is left at that width. */}
+        <div className="flex justify-between my-4 mx-8 sm:justify-center sm:gap-[114px] sm:m-4 sm:-translate-x-2">
           <StatTile icon={BookOpen} value={filteredManga.length} label="Total Manga" color={profileColor} />
           <StatTile icon={Percent} value={mean(filteredManga).toFixed(2)} label="Mean Score" color={profileColor} />
         </div>
