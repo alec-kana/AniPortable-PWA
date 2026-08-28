@@ -1,4 +1,4 @@
-import React, { useRef } from "react"
+import React, { useEffect, useRef } from "react"
 import { flushSync } from "react-dom"
 import { motion } from "framer-motion"
 import { Check } from "lucide-react"
@@ -30,6 +30,39 @@ export const MediaCardOverlay: React.FC<Props> = ({
 }) => {
   const progressWheel = useRef<NumberWheelHandle>(null)
   const scoreWheel = useRef<NumberWheelHandle>(null)
+
+  // The page behind the overlay has to stay put until it closes. Hiding the overflow on the
+  // scrolling element isn't enough on its own: <html> is what scrolls here, and clipping it
+  // clamps its offset to 0 — the page jumps to the top exactly the way a tab switch does. So
+  // the body is pinned at the offset it already had, which holds every card visually where it
+  // was for the morph, and the offset is scrolled back the moment the overlay unmounts. The
+  // padding stands in for the scrollbar that clipping takes away, so the grid doesn't shift
+  // sideways underneath.
+  useEffect(() => {
+    const { documentElement: html, body } = document
+    const scrollbarWidth = window.innerWidth - html.clientWidth
+    const scrollY = window.scrollY
+    const previousHtml = html.getAttribute("style")
+    const previousBody = body.getAttribute("style")
+
+    html.style.overflow = "hidden"
+    body.style.position = "fixed"
+    body.style.top = `-${scrollY}px`
+    body.style.left = "0"
+    body.style.width = "100%"
+    body.style.paddingRight = `${scrollbarWidth}px`
+
+    const restore = (el: HTMLElement, previous: string | null) => {
+      if (previous === null) el.removeAttribute("style")
+      else el.setAttribute("style", previous)
+    }
+
+    return () => {
+      restore(html, previousHtml)
+      restore(body, previousBody)
+      window.scrollTo(0, scrollY)
+    }
+  }, [])
 
   // Synchronous so the committed value is in state — and reflected back in
   // positionWillChange — before the close that reads it.
@@ -133,21 +166,20 @@ export const MediaCardOverlay: React.FC<Props> = ({
         exit={{ opacity: 0, pointerEvents: "none" }}
       />
 
-      {positionWillChange ? (
-        <motion.div
-          key="moving"
-          onClick={(e) => e.stopPropagation()}
-          className={cardClassName}
-          style={cardStyle}
-          exit={{ opacity: 0, y: -24, transition: { duration: 0.125, ease: "easeIn" } }}
-        >
-          {cardChildren}
-        </motion.div>
-      ) : (
-        <motion.div key="normal" layoutId={layoutId} onClick={(e) => e.stopPropagation()} className={cardClassName} style={cardStyle}>
-          {cardChildren}
-        </motion.div>
-      )}
+      {/* One element whichever way it leaves. Swapping between two of them mid-interaction —
+          which is what an edit that moves the card and is then undone does — remounts the
+          shared-layout node and replays the opening morph. `exit` is only read on the way out,
+          so it can stay live: a card that is leaving its slot has nothing to morph back into
+          and lifts away instead, and MediaCard keeps the slot's cover hidden for that. */}
+      <motion.div
+        layoutId={layoutId}
+        onClick={(e) => e.stopPropagation()}
+        className={cardClassName}
+        style={cardStyle}
+        exit={positionWillChange ? { opacity: 0, y: -24, transition: { duration: 0.125, ease: "easeIn" } } : undefined}
+      >
+        {cardChildren}
+      </motion.div>
     </motion.div>
   )
 }

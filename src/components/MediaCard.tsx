@@ -31,6 +31,7 @@ export const MediaCard: React.FC<Props> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [morphing, setMorphing] = useState(false)
+  const [closing, setClosing] = useState(false)
   const layoutId = `media-card-${entry.id}`
   const isPresent = useIsPresent()
 
@@ -68,7 +69,11 @@ export const MediaCard: React.FC<Props> = ({
   }
 
   const showCompletionButton = entry.totalUnits !== null && entry.progress >= entry.totalUnits
-  const hideCover = isOpen || (!isPresent && wasOpenBeforeExit.current)
+  // A card headed for another slot keeps its cover hidden until the overlay has finished
+  // leaving. Taking the cover back any earlier remounts the shared-layout element, and the
+  // overlay would spend the frame before the list pulls the slot morphing back into it.
+  const hideCover =
+    isOpen || (closing && positionWillChange) || (!isPresent && wasOpenBeforeExit.current)
 
   return (
     <>
@@ -116,7 +121,7 @@ export const MediaCard: React.FC<Props> = ({
       )}
 
       {createPortal(
-        <AnimatePresence>
+        <AnimatePresence onExitComplete={() => setClosing(false)}>
           {isOpen && (
             <MediaCardOverlay
               layoutId={layoutId}
@@ -128,9 +133,13 @@ export const MediaCard: React.FC<Props> = ({
               onScoreChange={onScoreChange}
               onMarkCompleted={() => {
                 onMarkCompleted()
+                setClosing(true)
                 setIsOpen(false)
               }}
-              onClose={() => setIsOpen(false)}
+              onClose={() => {
+                setClosing(true)
+                setIsOpen(false)
+              }}
             />
           )}
         </AnimatePresence>,
