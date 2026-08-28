@@ -77,9 +77,10 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
     separateEntries
   } = useSettings()
 
-  const { lists, dirty, setList, markDirty, clearDirty } = useAniListData()
+  const { lists, dirty, rescaled, setList, markDirty, clearDirty } = useAniListData()
   const cachedList = lists[config.listKey]
   const isDirty = dirty[config.listKey]
+  const isRescaling = rescaled[config.listKey]
 
   const [openEntry, setOpenEntry] = useState<OpenEntryState | null>(null)
   const [exitingId, setExitingId] = useState<OpenEntryState | null>(null)
@@ -284,9 +285,10 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
     return (
       <StateMessage icon={AlertCircle} tone="error" message={getErrorMessage(error, config.labels.error)} />
     )
-  // isDirty counts as loading: a refetch leaves useQuery's own flag false, so without it the
-  // stale list stays on screen until the request lands.
-  if (loading || isDirty) return <StateMessage icon={Loader2} spin message={config.labels.loading} />
+  // A rescale counts as loading — useQuery's own flag stays false through a refetch, and the
+  // cached scores are on the old scale until it lands. A list dirtied for any other reason
+  // stays on screen and corrects itself in place.
+  if (loading || isRescaling) return <StateMessage icon={Loader2} spin message={config.labels.loading} />
 
   const updateLocalList = (entryId: number, updates: Record<string, unknown>) => {
     if (cachedList) {

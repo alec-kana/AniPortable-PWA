@@ -21,13 +21,11 @@ export function getErrorMessage(error: ApolloError | undefined, fallback: string
   }
 
   if (statusCode === 403) {
-    // 403 covers both outages and real permission failures, so only the known
-    // outage wording gets the friendlier message.
-    const bodyMessage: string | undefined = networkError?.result?.errors?.[0]?.message
-    if (bodyMessage?.toLowerCase().includes("temporarily disabled")) {
-      return "AniList's API is temporarily disabled due to stability issues on their end. Check their Discord for updates, or try again later."
-    }
-    return fallback
+    // Every 403, whatever the body. AniList's documented outage response is
+    // GraphQL-shaped, but a Cloudflare block page or an empty body arrives as a
+    // ServerParseError with no .result to read — matching on wording left those
+    // showing the generic error. Auth failures are 401 or 400, never 403.
+    return "AniList's API is temporarily disabled due to stability issues on their end. Check their Discord for updates, or try again later."
   }
 
   if (typeof statusCode === "number" && statusCode >= 500) {

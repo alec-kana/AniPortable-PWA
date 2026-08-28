@@ -44,12 +44,15 @@ export const MediaCardOverlay: React.FC<Props> = ({
   const maxScore = getMaxScore(scoreFormat)
   const scoreStep = getScoreStep(scoreFormat)
   // No known total (ongoing series) — give the wheel an open-ended range.
-  const maxProgress = entry.totalUnits ?? 9999
+  const maxProgress = Math.max(entry.totalUnits ?? 9999, entry.progress)
   const showCompletionButton = entry.totalUnits !== null && entry.progress >= entry.totalUnits
 
+  // Scrolling stops at the latest aired episode, but only as a cap on *increases*.
   const latestReleasedEpisode = entry.nextAiringEpisode !== null ? entry.nextAiringEpisode - 1 : null
   const progressMaxSelectable =
-    latestReleasedEpisode !== null ? Math.min(latestReleasedEpisode, maxProgress) : undefined
+    latestReleasedEpisode !== null
+      ? Math.max(Math.min(latestReleasedEpisode, maxProgress), entry.progress)
+      : undefined
 
   const cardChildren = (
     <>

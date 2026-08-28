@@ -117,8 +117,9 @@ export const SettingsTab: React.FC = () => {
   const [updateRowOrder] = useMutation(UPDATE_ROW_ORDER)
 
   // Score format changes what the API returns — `score` comes back scaled to it — so every
-  // cached list has to be refetched rather than just re-rendered.
-  const refetchAllLists = () => ALL_LIST_KEYS.forEach((key) => markDirty(key))
+  // cached list has to be refetched rather than just re-rendered. Flagged as a rescale: the
+  // cached scores aren't slightly stale, they're wrong on their face until the refetch lands.
+  const refetchAllLists = () => ALL_LIST_KEYS.forEach((key) => markDirty(key, { rescaled: true }))
 
   const handleColorChange = async (color: string) => {
     setProfileColor(color)

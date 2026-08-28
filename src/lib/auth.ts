@@ -1,6 +1,7 @@
 import { fetchViewer } from "./anilist"
 import { broadcastAuthChange } from "./authChannel"
 import { load, save, remove } from "./storage"
+import { writeSyncMirror } from "./syncMirror"
 import { flushAllPendingUpdates } from "./syncQueue"
 
 const CLIENT_ID = import.meta.env.VITE_ANILIST_CLIENT_ID as string | undefined
@@ -75,6 +76,11 @@ export async function logout(): Promise<void> {
   await flushAllPendingUpdates()
   remove("accessToken")
   remove("user")
+  // The mirror is the only copy of the token a background task can still reach once no page
+  // is open, so it goes with the session. Anything the flush above couldn't send stays in
+  // localStorage and is sent when this account signs back in — there is just no background
+  // activity on its behalf in the meantime.
+  writeSyncMirror(null)
   // The service worker caches this account's list responses to serve them offline, so they
   // have to go too — otherwise the next account to open the app offline sees them.
   caches.delete("anilist-api").catch(() => {})

@@ -21,8 +21,19 @@ const MAX_QUEUE_AGE_MS = 24 * 60 * 60 * 1000
 // ignores it.
 export type QueuedUpdate = PendingUpdate & { queuedAt: number }
 
+// The stored queue, stamped with the account that made the edits. Entry ids are
+// account-scoped, so this is what stops one account's queue being replayed under another's
+// token — see the ownership check in flushAllPendingUpdates.
+type StoredQueue = { userId?: number; updates: [number, Partial<QueuedUpdate>][] }
+
+const currentUserId = (): number | undefined => load<{ id?: number }>("user")?.id
+
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 const pendingUpdates = new Map<number, QueuedUpdate>()
+// Whose edits are sitting in pendingUpdates. Tracked in memory as well as in storage, because
+// initSyncQueue restores the queue before handleAuthRedirect has stored the new viewer.
+let queueUserId: number | undefined
+
 // Held separately for the length of a request: pendingUpdates is cleared before the await, so
 // without this a list load landing mid-flush would read an empty queue and skip the overlay.
 let inFlightUpdates = new Map<number, QueuedUpdate>()
@@ -98,9 +109,23 @@ function persistPendingUpdates(): void {
     return
   }
   const updates = Array.from(pendingUpdates.entries())
-  save("pendingUpdates", updates)
+  save("pendingUpdates", { userId: queueUserId, updates } satisfies StoredQueue)
+
   // Mirrored on every persist so a worker woken with no page open always has a current copy.
-  writeSyncMirror({ token: load<string>("accessToken") ?? "", updates })
+  // Only ever alongside a live token: the mirror is the one store a background task can still
+  // reach once no page is left, so a credential in it has to end when the session does.
+  const token = load<string>("accessToken")
+  writeSyncMirror(token ? { token, updates } : null)
+}
+
+// Everything the queue owns, in both stores. Used when the queue turns out to belong to an
+// account that is no longer the one signed in.
+function discardPendingUpdates(): void {
+  pendingUpdates.clear()
+  failedAttempts.clear()
+  queueUserId = undefined
+  remove("pendingUpdates")
+  writeSyncMirror(null)
 }
 
 function dropStaleUpdates(): void {
@@ -143,7 +168,18 @@ export async function flushAllPendingUpdates(): Promise<void> {
   }
 
   const token = load<string>("accessToken")
+  // Signed out: the queue stays put rather than being dropped, and flushes once the account
+  // that made these edits signs back in.
   if (!token) return
+
+  // A queue left behind by a different account can only be rejected here — its entry ids
+  // belong to that account's list — so it would burn three attempts per entry before giving
+  // up. Drop it instead. An unstamped queue predates the stamp and is treated the same way.
+  if (queueUserId !== currentUserId()) {
+    console.warn("[syncQueue] Discarding a queue that belongs to a different account")
+    discardPendingUpdates()
+    return
+  }
 
   const updatesToFlush = new Map(pendingUpdates)
   inFlightUpdates = updatesToFlush
@@ -207,7 +243,10 @@ export async function flushAllPendingUpdates(): Promise<void> {
     if (authFailed) clearInvalidSession()
   } finally {
     // After the catch, so anything re-queued is already back in pendingUpdates.
-    inFlightUpdates = new Map()
+    // Guarded because this function is re-entrant — the retry timer, the debounce, and the
+    // visibilitychange/pagehide listeners all call it without awaiting, so a later flush may
+    // already own the slot and clearing it would hide its batch from getPendingUpdates.
+    if (inFlightUpdates === updatesToFlush) inFlightUpdates = new Map()
   }
 }
 
@@ -223,6 +262,8 @@ export function getPendingUpdates(): Map<number, QueuedUpdate> {
 
 export function queueUpdate(payload: { entryId: number } & PendingUpdate): void {
   const { entryId, progress, score, status } = payload
+
+  queueUserId = currentUserId()
 
   pendingUpdates.set(entryId, {
     ...pendingUpdates.get(entryId),
@@ -255,9 +296,10 @@ export function initSyncQueue(): void {
     armRetryTimer()
   })
 
-  const saved = load<[number, Partial<QueuedUpdate>][]>("pendingUpdates")
-  if (saved?.length) {
-    for (const [id, data] of saved) {
+  const saved = load<StoredQueue>("pendingUpdates")
+  if (saved?.updates?.length) {
+    queueUserId = saved.userId
+    for (const [id, data] of saved.updates) {
       // Anything persisted before queuedAt existed gets a fresh window rather than being
       // treated as infinitely old and thrown away.
       pendingUpdates.set(id, { ...data, queuedAt: data.queuedAt ?? Date.now() })
@@ -266,5 +308,9 @@ export function initSyncQueue(): void {
     // may not have had when it wrote it.
     persistPendingUpdates()
     flushAllPendingUpdates()
+  } else if (saved) {
+    // Unreadable or empty — an old shape from before the stamp, most likely.
+    remove("pendingUpdates")
+    writeSyncMirror(null)
   }
 }

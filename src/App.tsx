@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useEffect, useState } from "react"
 import { ApolloProvider } from "@apollo/client"
 import { client } from "./apollo/client"
 import { SettingsProvider, useSettings } from "./contexts/SettingsContext"
-import { AniListDataProvider } from "./contexts/AniListDataContext"
+import { AniListDataProvider, useAniListData } from "./contexts/AniListDataContext"
 import { AnimeTab } from "./components/AnimeTab"
 import { MangaTab } from "./components/MangaTab"
 import { SettingsTab } from "./components/SettingsTab"
@@ -27,6 +27,7 @@ function AppContent() {
   const [selectedKey, setSelectedKey] = useState<TabKey>("anime")
   const { user } = useAuth()
   const { profileColor, tabVisibility } = useSettings()
+  const { resetData } = useAniListData()
 
   const visibleTabs = TAB_DEFS.filter(({ key }) => {
     if (key === "anime") return tabVisibility !== "manga"
@@ -40,6 +41,21 @@ function AppContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabVisibility])
+
+  // The whole page scrolls, so an offset would otherwise carry into the next tab.
+  useEffect(() => {
+    window.scrollTo({ top: 0 })
+  }, [selectedKey])
+
+  // Unlike the extension's popup, this page outlives a logout — so the next account would
+  // read the previous one's lists until every query had answered.
+  useEffect(() => {
+    if (!user) {
+      setSelectedKey(visibleTabs[0].key)
+      resetData()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
 
   if (!user) {
     return <LoginPage />

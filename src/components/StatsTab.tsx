@@ -81,7 +81,7 @@ const StatTile: React.FC<{ icon: LucideIcon; value: string | number; label: stri
 
 export const StatsTab: React.FC = () => {
   const { profileColor, displayAdultContent, showAnimeStats, showMangaStats } = useSettings()
-  const { lists, dirty, setList, clearDirty } = useAniListData()
+  const { lists, dirty, rescaled, setList, clearDirty } = useAniListData()
 
   const [year, setYear] = useState<number | null>(null)
   const [sliderValue, setSliderValue] = useState<number>(0)
@@ -186,9 +186,10 @@ export const StatsTab: React.FC = () => {
         message={getErrorMessage(animeError || mangaError, "Error loading stats.")}
       />
     )
-  // The dirty flags count as loading: a refetch leaves useQuery's own flag false, so without
-  // them a stat tile would read "0" / "0.00" for the length of the round-trip.
-  if (animeLoading || mangaLoading || dirty.animeStats || dirty.mangaStats)
+  // Only a rescale counts as loading — useQuery's own flag stays false through a refetch, and
+  // every score is on the old scale until it lands, chart buckets included. Stats dirtied by
+  // a completed entry are one off the count, so they stay up and correct themselves in place.
+  if (animeLoading || mangaLoading || rescaled.animeStats || rescaled.mangaStats)
     return <StateMessage icon={Loader2} spin message="Loading your stats..." />
 
   return (
@@ -228,7 +229,8 @@ export const StatsTab: React.FC = () => {
               onValueChange={(values) => {
                 const i = values[0]
                 setSliderValue(i)
-                setYear(i === 0 ? null : years[i - 1])
+                // ?? null: a refetch can shorten `years` under a held position.
+                setYear(i === 0 ? null : years[i - 1] ?? null)
               }}
               onPointerDown={() => setIsSliderActive(true)}
               onPointerUp={() => setIsSliderActive(false)}

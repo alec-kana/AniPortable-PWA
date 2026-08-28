@@ -1,4 +1,5 @@
 import { remove } from "./storage"
+import { writeSyncMirror } from "./syncMirror"
 
 // Kept out of auth.ts so syncQueue.ts can clear a dead session without importing it:
 // auth.ts already imports flushAllPendingUpdates from there, and the pair would cycle.
@@ -40,5 +41,9 @@ export function clearInvalidSession(): void {
   console.warn("[auth] AniList rejected the stored token; clearing session")
   remove("accessToken")
   remove("user")
+  // Retrying a dead token in the background just burns requests until the age-out, and the
+  // mirror is the only place one could outlive the page. The queue itself survives in
+  // localStorage and flushes once a valid token is back.
+  writeSyncMirror(null)
   broadcastAuthChange()
 }

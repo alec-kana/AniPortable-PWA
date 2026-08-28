@@ -1,16 +1,17 @@
-import { useEffect, useState } from "react"
+import { useRef } from "react"
 
+// Freezes a list's on-screen order while `frozen`, so an edit's own re-sort can't
+// shuffle a different item under the one being interacted with. Item data still
+// updates live; only position holds. New/removed items are reconciled even while
+// frozen, inserted at the position liveList's order implies.
 export function useStableOrder<T extends { id: number }>(liveList: T[], frozen: boolean): T[] {
   const liveIds = liveList.map((item) => item.id)
-  const liveKey = liveIds.join(",")
-  const [frozenIds, setFrozenIds] = useState<number[]>(liveIds)
 
-  useEffect(() => {
-    if (!frozen) {
-      setFrozenIds(liveIds)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveKey, frozen])
+  // A ref read during render, not state+effect: the freeze can be re-armed within a
+  // frame of releasing, and an effect-timeline update would hand back the pre-release order.
+  const frozenIdsRef = useRef<number[]>(liveIds)
+  if (!frozen) frozenIdsRef.current = liveIds
+  const frozenIds = frozenIdsRef.current
 
   if (!frozen) {
     return liveList
