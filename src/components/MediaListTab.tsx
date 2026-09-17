@@ -314,7 +314,11 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
 
   const handleProgressChange = (entry: MediaEntry, newProgress: number) => {
     markAnimatingTarget(entry.id)
-    const clampedProgress = Math.min(Math.max(0, newProgress), entry.totalUnits || 9999)
+    const airedUnits = entry.nextAiringEpisode !== null ? entry.nextAiringEpisode - 1 : null
+    const caps = [entry.totalUnits, airedUnits].filter((v): v is number => v !== null)
+    const cap = caps.length ? Math.min(...caps) : 9999
+    // The cap only limits increases — progress already past it must still step down one at a time.
+    const clampedProgress = Math.min(Math.max(0, newProgress), Math.max(cap, entry.progress))
     const finished = entry.totalUnits && clampedProgress >= entry.totalUnits
 
     updateLocalList(entry.id, { progress: clampedProgress })
