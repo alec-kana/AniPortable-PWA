@@ -6,40 +6,53 @@ import { NumberWheel, type NumberWheelHandle } from "./NumberWheel"
 import { getMaxScore, getScoreStep, type MediaEntry } from "../lib/types"
 
 // Pinning the body holds the page still; clipping <html>, which is what scrolls here, would
-// clamp its offset to 0 and jump the page to the top. Pinning zeroes that offset too, and
-// Framer reads it both when it snapshots the card and when it measures the overlay — so the
-// lock is taken in the card's click handler, before the snapshot, and released on unmount.
+// clamp its offset to 0 and jump the page to the top. The body itself has to stay flush with
+// the viewport — offsetting it is what iOS resolves `position: fixed` against, which lifts the
+// bottom nav off the screen edge — so the scroll offset is carried by #root instead.
+//
+// Pinning zeroes the document's own scroll offset, and Framer reads it both when it snapshots
+// the card and when it measures the overlay — so the lock is taken in the card's click
+// handler, before the snapshot, and released on unmount.
 let pinnedScrollY: number | null = null
 let previousHtmlStyle: string | null = null
 let previousBodyStyle: string | null = null
+let previousRootStyle: string | null = null
 
 export function lockPageScroll(): void {
   if (pinnedScrollY !== null) return
 
   const { documentElement: html, body } = document
+  const root = document.getElementById("root")
+  if (!root) return
+
   const scrollbarWidth = window.innerWidth - html.clientWidth
   pinnedScrollY = window.scrollY
   previousHtmlStyle = html.getAttribute("style")
   previousBodyStyle = body.getAttribute("style")
+  previousRootStyle = root.getAttribute("style")
 
   html.style.overflow = "hidden"
   body.style.position = "fixed"
-  body.style.top = `-${pinnedScrollY}px`
+  body.style.top = "0"
   body.style.left = "0"
-  body.style.width = "100%"
+  body.style.right = "0"
+  body.style.bottom = "0"
   body.style.paddingRight = `${scrollbarWidth}px`
+  root.style.marginTop = `-${pinnedScrollY}px`
 }
 
 function unlockPageScroll(): void {
   if (pinnedScrollY === null) return
 
-  const restore = (el: HTMLElement, previous: string | null) => {
+  const restore = (el: HTMLElement | null, previous: string | null) => {
+    if (!el) return
     if (previous === null) el.removeAttribute("style")
     else el.setAttribute("style", previous)
   }
 
   restore(document.documentElement, previousHtmlStyle)
   restore(document.body, previousBodyStyle)
+  restore(document.getElementById("root"), previousRootStyle)
   window.scrollTo(0, pinnedScrollY)
   pinnedScrollY = null
 }
