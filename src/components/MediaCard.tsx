@@ -6,6 +6,10 @@ import { MediaCardOverlay, lockPageScroll } from "./MediaCardOverlay"
 import { notifyCardOpened, notifyCardClosed } from "../lib/syncQueue"
 import type { MediaEntry } from "../lib/types"
 
+// Covers already fetched this session, so a card remounting into a slot it has held before
+// paints from the first render instead of blanking for a frame.
+const loadedCovers = new Set<string>()
+
 type Props = {
   entry: MediaEntry
   profileColor: string
@@ -30,6 +34,8 @@ export const MediaCard: React.FC<Props> = ({
   positionWillChange = false
 }) => {
   const [isOpen, setIsOpen] = useState(false)
+  const [cover, setCover] = useState(() => (loadedCovers.has(entry.cover) ? entry.cover : null))
+  const slotRef = useRef<HTMLDivElement>(null)
   const [morphing, setMorphing] = useState(false)
   const [closing, setClosing] = useState(false)
   const layoutId = `media-card-${entry.id}`
@@ -55,6 +61,49 @@ export const MediaCard: React.FC<Props> = ({
     return () => notifyCardClosed()
   }, [isOpen])
 
+  // The grid renders every entry, so left to the background-image a long list asks for every
+  // cover at once and iOS drops the ones it can't keep up with — and a background-image that
+  // failed never asks again, leaving the slot blank until the card is opened. Hold each request
+  // until the card is near the viewport, and retry the ones that do fail.
+  useEffect(() => {
+    const slot = slotRef.current
+    if (!entry.cover || !slot) return
+
+    let cancelled = false
+    let attempt = 0
+    let retryTimer = 0
+
+    const load = () => {
+      const img = new Image()
+      img.onload = () => {
+        if (cancelled) return
+        loadedCovers.add(entry.cover)
+        setCover(entry.cover)
+      }
+      img.onerror = () => {
+        if (cancelled || ++attempt >= 3) return
+        retryTimer = window.setTimeout(load, attempt * 1000)
+      }
+      img.src = entry.cover
+    }
+
+    const observer = new IntersectionObserver(
+      ([slotEntry]) => {
+        if (!slotEntry.isIntersecting) return
+        observer.disconnect()
+        load()
+      },
+      { rootMargin: "600px" }
+    )
+    observer.observe(slot)
+
+    return () => {
+      cancelled = true
+      observer.disconnect()
+      window.clearTimeout(retryTimer)
+    }
+  }, [entry.cover])
+
   // Layout animation is only wanted for the morph to/from the overlay — left on, it would also
   // slide the card across a list reorder. A card already moving has no morph back to protect.
   useEffect(() => {
@@ -75,9 +124,10 @@ export const MediaCard: React.FC<Props> = ({
   return (
     <>
       {hideCover ? (
-        <div className="w-full aspect-[3/4]" aria-hidden />
+        <div ref={slotRef} className="w-full aspect-[3/4]" aria-hidden />
       ) : (
         <motion.div
+          ref={slotRef}
           layoutId={layoutId}
           transition={morphing && !positionWillChange ? undefined : { layout: { duration: 0 } }}
           onLayoutAnimationComplete={() => setMorphing(false)}
@@ -89,7 +139,7 @@ export const MediaCard: React.FC<Props> = ({
           }}
           className="relative w-full aspect-[3/4] overflow-hidden rounded-lg shadow-md cursor-pointer"
           style={{
-            backgroundImage: `url(${entry.cover})`,
+            backgroundImage: cover ? `url(${cover})` : undefined,
             backgroundSize: "cover",
             backgroundPosition: "center",
             pointerEvents: isPresent ? "auto" : "none"
