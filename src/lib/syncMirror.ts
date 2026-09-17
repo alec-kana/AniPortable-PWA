@@ -7,7 +7,13 @@ const MIRROR_CACHE = "sync-mirror"
 // Never fetched — the Cache API keys on a URL, so this is only ever an identifier.
 const MIRROR_KEY = "/__aniportable-sync-mirror"
 
-export type SyncMirror = { token: string; updates: [number, PendingUpdate][] }
+// Replaying a day-old edit would overwrite whatever another device has done since. Lives here,
+// not in syncQueue, so readSyncMirror can apply it without importing back into its own importer.
+export const MAX_QUEUE_AGE_MS = 24 * 60 * 60 * 1000
+
+export type MirroredUpdate = PendingUpdate & { queuedAt?: number }
+
+export type SyncMirror = { token: string; updates: [number, MirroredUpdate][] }
 
 export async function writeSyncMirror(mirror: SyncMirror | null): Promise<void> {
   try {
@@ -31,7 +37,20 @@ export async function readSyncMirror(): Promise<SyncMirror | null> {
     if (!response) return null
     const mirror = (await response.json()) as SyncMirror
     // A mirror with no token can't be sent, and an empty one has nothing to send.
-    return mirror?.token && mirror.updates?.length ? mirror : null
+    if (!mirror?.token || !mirror.updates?.length) return null
+
+    // The same age rule the page applies to its own queue. An unstamped entry predates the
+    // field and is kept, as it is on restore.
+    const oldest = Date.now() - MAX_QUEUE_AGE_MS
+    const fresh = mirror.updates.filter(([, data]) => (data.queuedAt ?? Date.now()) >= oldest)
+    if (fresh.length === mirror.updates.length) return mirror
+
+    // Nothing here is sendable again, so drop it rather than re-read it on every future sync.
+    if (fresh.length === 0) {
+      await writeSyncMirror(null)
+      return null
+    }
+    return { ...mirror, updates: fresh }
   } catch {
     return null
   }

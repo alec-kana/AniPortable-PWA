@@ -1,7 +1,7 @@
 import { AniListRequestError, isInvalidTokenError, saveBulkEntries, type PendingUpdate } from "./anilist"
 import { clearInvalidSession } from "./authChannel"
 import { load, save, remove } from "./storage"
-import { writeSyncMirror } from "./syncMirror"
+import { MAX_QUEUE_AGE_MS, writeSyncMirror } from "./syncMirror"
 
 const FLUSH_DEBOUNCE_MS = 5000
 // The extension retries a failed flush from a chrome.alarm, which fires whether or not the
@@ -13,9 +13,6 @@ const BACKGROUND_SYNC_TAG = "flush-pending-updates"
 // An entry AniList refuses as invalid would otherwise re-queue forever and take every edit
 // batched alongside it down with it.
 const MAX_FLUSH_ATTEMPTS = 3
-// An edit that never reached AniList stops being worth sending: the same list is editable
-// from other devices, and replaying a day-old change would overwrite whatever happened since.
-const MAX_QUEUE_AGE_MS = 24 * 60 * 60 * 1000
 
 // queuedAt rides along for the age check; saveBulkEntries reads the known fields by name and
 // ignores it.
