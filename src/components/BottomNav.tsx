@@ -29,7 +29,7 @@ export const BottomNav: React.FC<Props> = ({ tabs, selected, onSelect }) => {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 flex bg-[#12162a] border-t border-white/10 pb-[env(safe-area-inset-bottom)]"
+      className="fixed bottom-0 left-0 right-0 z-40 flex touch-none bg-[#12162a] border-t border-white/10 pb-[env(safe-area-inset-bottom)]"
       style={{ '--profile-color': profileColor } as React.CSSProperties}
     >
       {tabs.map((key) => {
@@ -38,6 +38,9 @@ export const BottomNav: React.FC<Props> = ({ tabs, selected, onSelect }) => {
         return (
           <button
             key={key}
+            // iOS swallows the click of a tap that lands while the page still has momentum, so
+            // touches switch on pointerdown; a click that does follow re-selects the same tab.
+            onPointerDown={(e) => e.pointerType === "touch" && onSelect(key)}
             onClick={() => onSelect(key)}
             className={`flex-1 flex flex-col items-center gap-1 py-2.5 text-xs font-medium transition-colors duration-200 ${
               isSelected ? '[color:var(--profile-color)]' : 'text-white/50'
