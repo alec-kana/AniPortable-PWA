@@ -5,58 +5,6 @@ import { Check } from "lucide-react"
 import { NumberWheel, type NumberWheelHandle } from "./NumberWheel"
 import { getMaxScore, getScoreStep, type MediaEntry } from "../lib/types"
 
-// Pinning the body holds the page still; clipping <html>, which is what scrolls here, would
-// clamp its offset to 0 and jump the page to the top. The body itself has to stay flush with
-// the viewport — offsetting it is what iOS resolves `position: fixed` against, which lifts the
-// bottom nav off the screen edge — so the scroll offset is carried by #root instead.
-//
-// Pinning zeroes the document's own scroll offset, and Framer reads it both when it snapshots
-// the card and when it measures the overlay — so the lock is taken in the card's click
-// handler, before the snapshot, and released on unmount.
-let pinnedScrollY: number | null = null
-let previousHtmlStyle: string | null = null
-let previousBodyStyle: string | null = null
-let previousRootStyle: string | null = null
-
-export function lockPageScroll(): void {
-  if (pinnedScrollY !== null) return
-
-  const { documentElement: html, body } = document
-  const root = document.getElementById("root")
-  if (!root) return
-
-  const scrollbarWidth = window.innerWidth - html.clientWidth
-  pinnedScrollY = window.scrollY
-  previousHtmlStyle = html.getAttribute("style")
-  previousBodyStyle = body.getAttribute("style")
-  previousRootStyle = root.getAttribute("style")
-
-  html.style.overflow = "hidden"
-  body.style.position = "fixed"
-  body.style.top = "0"
-  body.style.left = "0"
-  body.style.right = "0"
-  body.style.bottom = "0"
-  body.style.paddingRight = `${scrollbarWidth}px`
-  root.style.marginTop = `-${pinnedScrollY}px`
-}
-
-function unlockPageScroll(): void {
-  if (pinnedScrollY === null) return
-
-  const restore = (el: HTMLElement | null, previous: string | null) => {
-    if (!el) return
-    if (previous === null) el.removeAttribute("style")
-    else el.setAttribute("style", previous)
-  }
-
-  restore(document.documentElement, previousHtmlStyle)
-  restore(document.body, previousBodyStyle)
-  restore(document.getElementById("root"), previousRootStyle)
-  window.scrollTo(0, pinnedScrollY)
-  pinnedScrollY = null
-}
-
 type Props = {
   layoutId: string
   entry: MediaEntry
@@ -80,12 +28,28 @@ export const MediaCardOverlay: React.FC<Props> = ({
   onMarkCompleted,
   onClose
 }) => {
+  const overlay = useRef<HTMLDivElement>(null)
   const progressWheel = useRef<NumberWheelHandle>(null)
   const scoreWheel = useRef<NumberWheelHandle>(null)
 
+  // The page behind can't be pinned: the moment the document stops being scrollable iOS
+  // re-expands the browser chrome, and the space that reserves is still reserved in the PWA,
+  // where it shows as a gap under the bottom nav. Swallow the drags instead — the document
+  // stays scrollable, it just never receives a scroll, so nothing about the viewport moves.
   useEffect(() => {
-    lockPageScroll()
-    return unlockPageScroll
+    const el = overlay.current
+    if (!el) return
+
+    const block = (e: Event) => {
+      if (!(e.target as Element | null)?.closest(".no-scrollbar")) e.preventDefault()
+    }
+
+    el.addEventListener("touchmove", block, { passive: false })
+    el.addEventListener("wheel", block, { passive: false })
+    return () => {
+      el.removeEventListener("touchmove", block)
+      el.removeEventListener("wheel", block)
+    }
   }, [])
 
   // Synchronous so positionWillChange reflects the committed value before onClose reads it.
@@ -176,6 +140,7 @@ export const MediaCardOverlay: React.FC<Props> = ({
 
   return (
     <motion.div
+      ref={overlay}
       className="fixed inset-0 z-50 flex items-center justify-center p-6"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}

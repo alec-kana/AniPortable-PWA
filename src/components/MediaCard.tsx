@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { motion, AnimatePresence, useIsPresent } from "framer-motion"
 import { Check } from "lucide-react"
-import { MediaCardOverlay, lockPageScroll } from "./MediaCardOverlay"
+import { MediaCardOverlay } from "./MediaCardOverlay"
 import { notifyCardOpened, notifyCardClosed } from "../lib/syncQueue"
 import type { MediaEntry } from "../lib/types"
 
@@ -131,12 +131,7 @@ export const MediaCard: React.FC<Props> = ({
           layoutId={layoutId}
           transition={morphing && !positionWillChange ? undefined : { layout: { duration: 0 } }}
           onLayoutAnimationComplete={() => setMorphing(false)}
-          onClick={() => {
-            if (!isPresent) return
-            // Must precede the state flip — see lockPageScroll.
-            lockPageScroll()
-            setIsOpen(true)
-          }}
+          onClick={() => isPresent && setIsOpen(true)}
           className="relative w-full aspect-[3/4] overflow-hidden rounded-lg shadow-md cursor-pointer"
           style={{
             backgroundImage: cover ? `url(${cover})` : undefined,
