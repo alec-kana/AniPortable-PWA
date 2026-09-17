@@ -4,6 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
     <meta name="theme-color" content="#242538" />
+
+    <!-- GitHub Pages serves no custom headers, so vercel.json and public/_headers are both
+         inert there and this is the only CSP that ships. frame-ancestors is omitted because
+         the spec says to ignore it in meta form; connect-src is the directive that matters
+         most here, keeping the access token from being sent anywhere but AniList. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://graphql.anilist.co; font-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'"
+    />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="description" content="Track and update your AniList anime and manga on the go." />
     <link rel="icon" type="image/png" href="/icons/icon128.png" />
 
@@ -17,7 +27,8 @@
     <meta property="og:type" content="website" />
     <meta property="og:title" content="AniPortable" />
     <meta property="og:description" content="Track and update your AniList anime and manga on the go." />
-    <meta property="og:image" content="/icons/icon1024.png" />
+    <meta property="og:url" content="https://alec-kana.github.io/AniPortable-PWA/" />
+    <meta property="og:image" content="https://alec-kana.github.io/AniPortable-PWA/icons/icon1024.png" />
 
     <title>AniPortable</title>
   </head>

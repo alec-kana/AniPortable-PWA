@@ -2,7 +2,13 @@ import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 import { VitePWA } from "vite-plugin-pwa"
 
+// Served from a project page, so everything sits under the repo name rather than the root.
+// `id` and `start_url` have to move with it: `id` is the key a browser uses to decide whether
+// an install is the same app, so it has to match the URL the app is actually served from.
+const BASE = "/AniPortable-PWA/"
+
 export default defineConfig({
+  base: BASE,
   plugins: [
     react(),
     VitePWA({
@@ -18,8 +24,8 @@ export default defineConfig({
         name: "AniPortable",
         short_name: "AniPortable",
         description: "Track and update your AniList anime & manga on the go.",
-        id: "/",
-        start_url: "/",
+        id: BASE,
+        start_url: BASE,
         display: "standalone",
         background_color: "#12162a",
         theme_color: "#242538",
