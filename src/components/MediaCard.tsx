@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { motion, AnimatePresence, useIsPresent } from "framer-motion"
 import { Check } from "lucide-react"
-import { MediaCardOverlay } from "./MediaCardOverlay"
+import { MediaCardOverlay, lockPageScroll } from "./MediaCardOverlay"
 import { notifyCardOpened, notifyCardClosed } from "../lib/syncQueue"
 import type { MediaEntry } from "../lib/types"
 
@@ -55,10 +55,8 @@ export const MediaCard: React.FC<Props> = ({
     return () => notifyCardClosed()
   }, [isOpen])
 
-  // Layout animation is only wanted while this card morphs to/from its overlay; outside that
-  // it would also animate the card across a list reorder, which should be instant. Once the
-  // card is known to be moving there is no morph back to protect, and leaving the window open
-  // would let it slide to its new slot on re-entry instead.
+  // Layout animation is only wanted for the morph to/from the overlay — left on, it would also
+  // slide the card across a list reorder. A card already moving has no morph back to protect.
   useEffect(() => {
     if (positionWillChange) setMorphing(false)
     else if (isOpen) setMorphing(true)
@@ -69,9 +67,8 @@ export const MediaCard: React.FC<Props> = ({
   }
 
   const showCompletionButton = entry.totalUnits !== null && entry.progress >= entry.totalUnits
-  // A card headed for another slot keeps its cover hidden until the overlay has finished
-  // leaving. Taking the cover back any earlier remounts the shared-layout element, and the
-  // overlay would spend the frame before the list pulls the slot morphing back into it.
+  // Taking the cover back before the overlay has left remounts the shared-layout element, and
+  // the overlay morphs back into the slot for a frame.
   const hideCover =
     isOpen || (closing && positionWillChange) || (!isPresent && wasOpenBeforeExit.current)
 
@@ -84,7 +81,12 @@ export const MediaCard: React.FC<Props> = ({
           layoutId={layoutId}
           transition={morphing && !positionWillChange ? undefined : { layout: { duration: 0 } }}
           onLayoutAnimationComplete={() => setMorphing(false)}
-          onClick={() => isPresent && setIsOpen(true)}
+          onClick={() => {
+            if (!isPresent) return
+            // Must precede the state flip — see lockPageScroll.
+            lockPageScroll()
+            setIsOpen(true)
+          }}
           className="relative w-full aspect-[3/4] overflow-hidden rounded-lg shadow-md cursor-pointer"
           style={{
             backgroundImage: `url(${entry.cover})`,
