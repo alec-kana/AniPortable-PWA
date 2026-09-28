@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { flushSync } from "react-dom"
 import { motion } from "framer-motion"
 import { Check } from "lucide-react"
@@ -31,6 +31,7 @@ export const MediaCardOverlay: React.FC<Props> = ({
   const overlay = useRef<HTMLDivElement>(null)
   const progressWheel = useRef<NumberWheelHandle>(null)
   const scoreWheel = useRef<NumberWheelHandle>(null)
+  const [morphed, setMorphed] = useState(false)
 
   // The page behind can't be pinned: the moment the document stops being scrollable iOS
   // re-expands the browser chrome, and the space that reserves is still reserved in the PWA,
@@ -139,7 +140,9 @@ export const MediaCardOverlay: React.FC<Props> = ({
     // The morph is a scale of this whole subtree — two masked wheels, 80-odd rows, a blurred
     // shadow. On its own layer that is rasterized once and scaled by the compositor; without
     // one the browser repaints all of it every frame, which is what dropped the frame rate.
-    willChange: "transform"
+    // Dropped again on arrival: held, the card keeps whatever raster the animation ended on
+    // rather than repainting the cover at the full resolution of the screen.
+    willChange: morphed ? undefined : "transform"
   } as const
 
   return (
@@ -167,6 +170,7 @@ export const MediaCardOverlay: React.FC<Props> = ({
         onClick={(e) => e.stopPropagation()}
         className={cardClassName}
         style={cardStyle}
+        onLayoutAnimationComplete={() => setMorphed(true)}
         exit={positionWillChange ? { opacity: 0, y: -24, transition: { duration: 0.125, ease: "easeIn" } } : undefined}
       >
         {cardChildren}
