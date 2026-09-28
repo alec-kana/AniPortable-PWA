@@ -166,10 +166,7 @@ export const MediaCard: React.FC<Props> = ({
             backgroundImage: cover ? `url(${cover})` : undefined,
             backgroundSize: "cover",
             backgroundPosition: "center",
-            pointerEvents: isPresent ? "auto" : "none",
-            // The morph back from the overlay is a scale, and without a layer of its own the
-            // card — cover, shadow, translucent caption — is re-rasterized on every frame of it.
-            willChange: morphing ? "transform" : undefined
+            pointerEvents: isPresent ? "auto" : "none"
           }}
         >
           {showCompletionButton && (

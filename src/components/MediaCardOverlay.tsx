@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react"
+import React, { useEffect, useRef } from "react"
 import { flushSync } from "react-dom"
 import { motion } from "framer-motion"
 import { Check } from "lucide-react"
@@ -31,22 +31,6 @@ export const MediaCardOverlay: React.FC<Props> = ({
   const overlay = useRef<HTMLDivElement>(null)
   const progressWheel = useRef<NumberWheelHandle>(null)
   const scoreWheel = useRef<NumberWheelHandle>(null)
-  const [morphed, setMorphed] = useState(false)
-  const [cover, setCover] = useState(entry.cover)
-
-  // The card opens on the cover the grid already has, then swaps in the full-size one. Asking
-  // for it any earlier would morph an empty card while it downloaded, and swapping mid-morph
-  // costs a frame to re-rasterize.
-  useEffect(() => {
-    if (!morphed || entry.coverHd === entry.cover) return
-
-    const img = new Image()
-    img.onload = () => setCover(entry.coverHd)
-    img.src = entry.coverHd
-    return () => {
-      img.onload = null
-    }
-  }, [morphed, entry.cover, entry.coverHd])
 
   // The page behind can't be pinned: the moment the document stops being scrollable iOS
   // re-expands the browser chrome, and the space that reserves is still reserved in the PWA,
@@ -149,7 +133,7 @@ export const MediaCardOverlay: React.FC<Props> = ({
   const cardClassName =
     "relative z-10 w-full max-w-[300px] sm:max-w-[380px] md:max-w-[460px] lg:max-w-[560px] xl:max-w-[640px] max-h-[85vh] aspect-[3/4] overflow-hidden rounded-xl shadow-2xl"
   const cardStyle = {
-    backgroundImage: `url(${cover})`,
+    backgroundImage: `url(${entry.cover})`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     // The morph is a scale of this whole subtree — two masked wheels, 80-odd rows, a blurred
@@ -183,7 +167,6 @@ export const MediaCardOverlay: React.FC<Props> = ({
         onClick={(e) => e.stopPropagation()}
         className={cardClassName}
         style={cardStyle}
-        onLayoutAnimationComplete={() => setMorphed(true)}
         exit={positionWillChange ? { opacity: 0, y: -24, transition: { duration: 0.125, ease: "easeIn" } } : undefined}
       >
         {cardChildren}

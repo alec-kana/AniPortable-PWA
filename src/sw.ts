@@ -15,8 +15,8 @@ const ANILIST_URL = "https://graphql.anilist.co"
 const COVER_URL = "https://s4.anilist.co/"
 const ANILIST_CACHE = "anilist-api"
 const COVER_CACHE = "anilist-covers"
-// ~400 covers at the 140KB size the grid asks for.
-const COVER_CACHE_LIMIT = 400
+// ~200 covers at the 490KB the full-size image costs.
+const COVER_CACHE_LIMIT = 200
 const NETWORK_TIMEOUT_MS = 4000
 const BACKGROUND_SYNC_TAG = "flush-pending-updates"
 

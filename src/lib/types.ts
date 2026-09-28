@@ -3,7 +3,6 @@ export type MediaEntry = {
   id: number
   title: string
   cover: string
-  coverHd: string
   progress: number
   score: number
   totalUnits: number | null
