@@ -159,6 +159,8 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
       id: entry.id,
       title: pickTitle(entry.media.title, titleLanguage),
       cover: entry.media.coverImage.extraLarge ?? entry.media.coverImage.large,
+      // 140KB against the full cover's 490KB — shown only if the full one is slow to arrive.
+      coverPreview: entry.media.coverImage.large ?? entry.media.coverImage.extraLarge,
       progress: entry.progress,
       score: entry.score || 0,
       isAdult: entry.media.isAdult,

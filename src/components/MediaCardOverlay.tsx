@@ -8,6 +8,8 @@ import { getMaxScore, getScoreStep, type MediaEntry } from "../lib/types"
 type Props = {
   layoutId: string
   entry: MediaEntry
+  // Whatever the card was painting — the full cover, or the preview standing in for it.
+  cover: string
   profileColor: string
   scoreFormat: string
   positionWillChange?: boolean
@@ -20,6 +22,7 @@ type Props = {
 export const MediaCardOverlay: React.FC<Props> = ({
   layoutId,
   entry,
+  cover,
   profileColor,
   scoreFormat,
   positionWillChange = false,
@@ -32,6 +35,20 @@ export const MediaCardOverlay: React.FC<Props> = ({
   const progressWheel = useRef<NumberWheelHandle>(null)
   const scoreWheel = useRef<NumberWheelHandle>(null)
   const [morphed, setMorphed] = useState(false)
+  const [shown, setShown] = useState(cover)
+
+  // Opening on a preview is where the overlay's scale hurts most, so upgrade as soon as the
+  // morph is over — after it, so the swap can't cost the animation a frame to re-rasterize.
+  useEffect(() => {
+    if (!morphed || shown === entry.cover) return
+
+    const img = new Image()
+    img.onload = () => setShown(entry.cover)
+    img.src = entry.cover
+    return () => {
+      img.onload = null
+    }
+  }, [morphed, shown, entry.cover])
 
   // The page behind can't be pinned: the moment the document stops being scrollable iOS
   // re-expands the browser chrome, and the space that reserves is still reserved in the PWA,
@@ -134,7 +151,7 @@ export const MediaCardOverlay: React.FC<Props> = ({
   const cardClassName =
     "relative z-10 w-full max-w-[300px] sm:max-w-[380px] md:max-w-[460px] lg:max-w-[560px] xl:max-w-[640px] max-h-[85vh] aspect-[3/4] overflow-hidden rounded-xl shadow-2xl"
   const cardStyle = {
-    backgroundImage: `url(${entry.cover})`,
+    backgroundImage: `url(${shown})`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     // The morph is a scale of this whole subtree — two masked wheels, 80-odd rows, a blurred

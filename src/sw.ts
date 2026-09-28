@@ -15,8 +15,9 @@ const ANILIST_URL = "https://graphql.anilist.co"
 const COVER_URL = "https://s4.anilist.co/"
 const ANILIST_CACHE = "anilist-api"
 const COVER_CACHE = "anilist-covers"
-// ~200 covers at the 490KB the full-size image costs.
-const COVER_CACHE_LIMIT = 200
+// ~300 covers at the 490KB the full-size image costs. A put that runs past the disk's quota
+// fails on its own below, so this only has to keep the cache from being the thing that fills it.
+const COVER_CACHE_LIMIT = 300
 const NETWORK_TIMEOUT_MS = 4000
 const BACKGROUND_SYNC_TAG = "flush-pending-updates"
 
@@ -101,11 +102,16 @@ async function cacheFirstCover(request: Request): Promise<Response> {
   return response
 }
 
+// The small stand-in covers are throwaway — storing them would spend the budget above on files
+// the card replaces seconds later, and halve how many real covers survive. Left to the browser's
+// own cache, which holds them for the month AniList asks for.
+const isPreviewCover = (url: string) => url.includes("/cover/medium/") || url.includes("/cover/small/")
+
 self.addEventListener("fetch", (event) => {
   const { request } = event
   if (request.method === "POST" && request.url.startsWith(ANILIST_URL)) {
     event.respondWith(networkFirstAniList(request))
-  } else if (request.method === "GET" && request.url.startsWith(COVER_URL)) {
+  } else if (request.method === "GET" && request.url.startsWith(COVER_URL) && !isPreviewCover(request.url)) {
     event.respondWith(cacheFirstCover(request))
   }
 })

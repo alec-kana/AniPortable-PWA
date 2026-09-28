@@ -10,6 +10,10 @@ import type { MediaEntry } from "../lib/types"
 // paints from the first render instead of blanking for a frame.
 const loadedCovers = new Set<string>()
 
+// How long the full-size cover gets to arrive on its own before the small one is fetched to
+// stand in for it. Long enough that a cached or quick cover never asks for the second file.
+const PREVIEW_AFTER_MS = 1000
+
 type Props = {
   entry: MediaEntry
   profileColor: string
@@ -74,13 +78,30 @@ export const MediaCard: React.FC<Props> = ({
     let loading = false
     let attempt = 0
     let retryTimer = 0
+    let previewTimer = 0
+    let previewAsked = false
+
+    // Only ever a stand-in, so it is asked for once and never retried — and it gives up its slot
+    // the moment the real cover lands, including if that happens while this one is in flight.
+    const loadPreview = () => {
+      if (cancelled || previewAsked || loadedCovers.has(entry.cover)) return
+      previewAsked = true
+      const img = new Image()
+      img.onload = () => {
+        if (!cancelled && !loadedCovers.has(entry.cover)) setCover(entry.coverPreview)
+      }
+      img.src = entry.coverPreview
+    }
 
     const load = () => {
       if (cancelled || loading || loadedCovers.has(entry.cover)) return
       loading = true
+      window.clearTimeout(previewTimer)
+      if (entry.coverPreview !== entry.cover) previewTimer = window.setTimeout(loadPreview, PREVIEW_AFTER_MS)
       const img = new Image()
       img.onload = () => {
         loading = false
+        window.clearTimeout(previewTimer)
         if (cancelled) return
         loadedCovers.add(entry.cover)
         setCover(entry.cover)
@@ -119,6 +140,7 @@ export const MediaCard: React.FC<Props> = ({
     const stop = () => {
       observer.disconnect()
       window.clearTimeout(retryTimer)
+      window.clearTimeout(previewTimer)
       window.removeEventListener("online", retryNow)
       document.removeEventListener("visibilitychange", retryNow)
     }
@@ -202,6 +224,7 @@ export const MediaCard: React.FC<Props> = ({
             <MediaCardOverlay
               layoutId={layoutId}
               entry={entry}
+              cover={cover ?? entry.cover}
               profileColor={profileColor}
               scoreFormat={scoreFormat}
               positionWillChange={positionWillChange}
