@@ -17,19 +17,19 @@ import { SquareArrowOutUpRight, Loader2 } from "lucide-react"
 // A deploy renames every chunk, and the new worker prunes the old ones the moment it claims the
 // page — so the first open of this tab after an update asks for a file that exists neither in the
 // cache nor on the server. Reloading picks up the new names; the flag is what stops a real failure
-// from looping on it.
-const STALE_CHUNK_RELOAD = "reloaded-for-stale-chunk"
+// from looping on it, and what tells the reloaded app to finish opening the tab that was tapped.
+const STATS_CHUNK_RELOAD = "reloaded-for-stats-chunk"
 
 // Split out so recharts only loads when the Stats tab is actually opened.
 const StatsTab = lazy(() =>
   import("./components/StatsTab")
     .then((m) => {
-      sessionStorage.removeItem(STALE_CHUNK_RELOAD)
+      sessionStorage.removeItem(STATS_CHUNK_RELOAD)
       return { default: m.StatsTab }
     })
     .catch((err) => {
-      if (!sessionStorage.getItem(STALE_CHUNK_RELOAD)) {
-        sessionStorage.setItem(STALE_CHUNK_RELOAD, "1")
+      if (!sessionStorage.getItem(STATS_CHUNK_RELOAD)) {
+        sessionStorage.setItem(STATS_CHUNK_RELOAD, "1")
         window.location.reload()
       }
       throw err
@@ -44,7 +44,9 @@ const TAB_DEFS: { key: TabKey; Component: React.FC }[] = [
 ]
 
 function AppContent() {
-  const [selectedKey, setSelectedKey] = useState<TabKey>("anime")
+  const [selectedKey, setSelectedKey] = useState<TabKey>(() =>
+    sessionStorage.getItem(STATS_CHUNK_RELOAD) ? "stats" : "anime"
+  )
   const { user } = useAuth()
   const { profileColor, tabVisibility } = useSettings()
   const { resetData } = useAniListData()
