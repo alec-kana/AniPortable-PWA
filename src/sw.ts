@@ -12,7 +12,11 @@ declare const self: ServiceWorkerGlobalScope & {
 type SyncEvent = ExtendableEvent & { tag: string }
 
 const ANILIST_URL = "https://graphql.anilist.co"
+const COVER_URL = "https://s4.anilist.co/"
 const ANILIST_CACHE = "anilist-api"
+const COVER_CACHE = "anilist-covers"
+// ~400 covers at the 140KB size the grid asks for.
+const COVER_CACHE_LIMIT = 400
 const NETWORK_TIMEOUT_MS = 4000
 const BACKGROUND_SYNC_TAG = "flush-pending-updates"
 
@@ -68,10 +72,35 @@ async function networkFirstAniList(request: Request): Promise<Response> {
   return (await cache.match(key)) ?? network
 }
 
+// Covers are the bulk of what this app downloads and a URL's image never changes, so a flaky
+// connection only has to win once per cover — and the grid still paints on a cold offline launch.
+async function cacheFirstCover(request: Request): Promise<Response> {
+  const cache = await caches.open(COVER_CACHE)
+  const hit = await cache.match(request)
+  if (hit) return hit
+
+  // Refetched as cors rather than forwarding the <img> element's no-cors request: an opaque
+  // response hides its status, and caching one would pin a transient 5xx as if it were the cover.
+  const response = await fetch(request.url, { mode: "cors", credentials: "omit" }).catch(() => null)
+  if (!response) return fetch(request)
+
+  if (response.ok) {
+    await cache.put(request, response.clone())
+    // keys() is insertion-ordered, so the front of the list is the oldest cover.
+    const keys = await cache.keys()
+    if (keys.length > COVER_CACHE_LIMIT) {
+      await Promise.all(keys.slice(0, keys.length - COVER_CACHE_LIMIT).map((key) => cache.delete(key)))
+    }
+  }
+  return response
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event
   if (request.method === "POST" && request.url.startsWith(ANILIST_URL)) {
     event.respondWith(networkFirstAniList(request))
+  } else if (request.method === "GET" && request.url.startsWith(COVER_URL)) {
+    event.respondWith(cacheFirstCover(request))
   }
 })
 

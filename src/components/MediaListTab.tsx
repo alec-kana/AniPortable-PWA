@@ -158,7 +158,10 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
     return rawEntries.map((entry: any) => ({
       id: entry.id,
       title: pickTitle(entry.media.title, titleLanguage),
-      cover: entry.media.coverImage.extraLarge ?? entry.media.coverImage.large,
+      // The grid renders at ~170px, so the 460x640 `extraLarge` costs 490KB a card for detail
+      // no phone can show. It's kept for the overlay, which is the only place big enough to use it.
+      cover: entry.media.coverImage.large ?? entry.media.coverImage.extraLarge,
+      coverHd: entry.media.coverImage.extraLarge ?? entry.media.coverImage.large,
       progress: entry.progress,
       score: entry.score || 0,
       isAdult: entry.media.isAdult,

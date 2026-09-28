@@ -64,43 +64,72 @@ export const MediaCard: React.FC<Props> = ({
   // The grid renders every entry, so left to the background-image a long list asks for every
   // cover at once and iOS drops the ones it can't keep up with — and a background-image that
   // failed never asks again, leaving the slot blank until the card is opened. Hold each request
-  // until the card is near the viewport, and retry the ones that do fail.
+  // until the card is near the viewport, and keep re-asking until it lands.
   useEffect(() => {
     const slot = slotRef.current
     if (!entry.cover || !slot) return
 
     let cancelled = false
+    let inView = false
+    let loading = false
     let attempt = 0
     let retryTimer = 0
 
     const load = () => {
+      if (cancelled || loading || loadedCovers.has(entry.cover)) return
+      loading = true
       const img = new Image()
       img.onload = () => {
+        loading = false
         if (cancelled) return
         loadedCovers.add(entry.cover)
         setCover(entry.cover)
+        stop()
       }
       img.onerror = () => {
-        if (cancelled || ++attempt >= 3) return
-        retryTimer = window.setTimeout(load, attempt * 1000)
+        loading = false
+        // Backs off to 8s and keeps going rather than giving up after a few tries: a PWA has
+        // no pull-to-refresh, so nothing else would ever re-ask for this cover.
+        if (!cancelled && inView) retryTimer = window.setTimeout(load, Math.min(2 ** attempt++, 8) * 1000)
       }
       img.src = entry.cover
     }
 
+    // Skips the wait when the connection or the app comes back — by then the backoff may have
+    // grown long while there was no network to use at all.
+    const retryNow = () => {
+      if (!inView || !navigator.onLine || document.visibilityState !== "visible") return
+      window.clearTimeout(retryTimer)
+      attempt = 0
+      load()
+    }
+
+    // Stays connected until the cover lands, so scrolling a blank card away and back retries it.
+    // Tried even while offline: the service worker may have this cover cached from a past run.
     const observer = new IntersectionObserver(
       ([slotEntry]) => {
-        if (!slotEntry.isIntersecting) return
-        observer.disconnect()
+        inView = slotEntry.isIntersecting
+        if (!inView) return window.clearTimeout(retryTimer)
+        attempt = 0
         load()
       },
       { rootMargin: "600px" }
     )
+
+    const stop = () => {
+      observer.disconnect()
+      window.clearTimeout(retryTimer)
+      window.removeEventListener("online", retryNow)
+      document.removeEventListener("visibilitychange", retryNow)
+    }
+
     observer.observe(slot)
+    window.addEventListener("online", retryNow)
+    document.addEventListener("visibilitychange", retryNow)
 
     return () => {
       cancelled = true
-      observer.disconnect()
-      window.clearTimeout(retryTimer)
+      stop()
     }
   }, [entry.cover])
 
@@ -137,7 +166,10 @@ export const MediaCard: React.FC<Props> = ({
             backgroundImage: cover ? `url(${cover})` : undefined,
             backgroundSize: "cover",
             backgroundPosition: "center",
-            pointerEvents: isPresent ? "auto" : "none"
+            pointerEvents: isPresent ? "auto" : "none",
+            // The morph back from the overlay is a scale, and without a layer of its own the
+            // card — cover, shadow, translucent caption — is re-rasterized on every frame of it.
+            willChange: morphing ? "transform" : undefined
           }}
         >
           {showCompletionButton && (
