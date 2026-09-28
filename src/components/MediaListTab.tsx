@@ -364,13 +364,15 @@ export const MediaListTab: React.FC<{ config: MediaListConfig }> = ({ config }) 
               return (
                 <motion.div
                   key={entry.id}
-                  initial={isTarget ? { opacity: 0, y: -36, zIndex: 10 } : false}
+                  // Every other card sits at 10, so an equal z-index would leave paint order to
+                  // DOM order and let a later sibling cover the card mid-animation.
+                  initial={isTarget ? { opacity: 0, y: -36, zIndex: 20 } : false}
                   animate={
                     isTarget
                       ? {
                           opacity: 1,
                           y: 0,
-                          zIndex: 10,
+                          zIndex: 20,
                           transition: {
                             opacity: { duration: 0.15, ease: "easeOut" },
                             y: { duration: 0.25, ease: "easeOut", delay: 0.15 },
