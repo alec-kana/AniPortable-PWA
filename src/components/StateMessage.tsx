@@ -7,9 +7,17 @@ type Props = {
   message: string
   tone?: "default" | "error"
   spin?: boolean
+  children?: React.ReactNode
 }
 
-export const StateMessage: React.FC<Props> = ({ icon: Icon, title, message, tone = "default", spin = false }) => {
+export const StateMessage: React.FC<Props> = ({
+  icon: Icon,
+  title,
+  message,
+  tone = "default",
+  spin = false,
+  children
+}) => {
   const color = tone === "error" ? "text-red" : "text-gray"
 
   return (
@@ -21,6 +29,7 @@ export const StateMessage: React.FC<Props> = ({ icon: Icon, title, message, tone
       )}
       {title && <h3 className={`text-base font-semibold ${color} mb-2`}>{title}</h3>}
       <p className={`text-sm ${color} leading-relaxed max-w-[280px]`}>{message}</p>
+      {children}
     </div>
   )
 }

@@ -9,12 +9,32 @@ import { SettingsTab } from "./components/SettingsTab"
 import { LoginPage } from "./components/LoginPage"
 import { BottomNav, type TabKey } from "./components/BottomNav"
 import { OfflineNotice } from "./components/OfflineNotice"
+import { ErrorBoundary } from "./components/ErrorBoundary"
 import { useAuth } from "./hooks/useAuth"
 import { handleAuthRedirect } from "./lib/auth"
 import { SquareArrowOutUpRight, Loader2 } from "lucide-react"
 
+// A deploy renames every chunk, and the new worker prunes the old ones the moment it claims the
+// page — so the first open of this tab after an update asks for a file that exists neither in the
+// cache nor on the server. Reloading picks up the new names; the flag is what stops a real failure
+// from looping on it.
+const STALE_CHUNK_RELOAD = "reloaded-for-stale-chunk"
+
 // Split out so recharts only loads when the Stats tab is actually opened.
-const StatsTab = lazy(() => import("./components/StatsTab").then((m) => ({ default: m.StatsTab })))
+const StatsTab = lazy(() =>
+  import("./components/StatsTab")
+    .then((m) => {
+      sessionStorage.removeItem(STALE_CHUNK_RELOAD)
+      return { default: m.StatsTab }
+    })
+    .catch((err) => {
+      if (!sessionStorage.getItem(STALE_CHUNK_RELOAD)) {
+        sessionStorage.setItem(STALE_CHUNK_RELOAD, "1")
+        window.location.reload()
+      }
+      throw err
+    })
+)
 
 const TAB_DEFS: { key: TabKey; Component: React.FC }[] = [
   { key: "anime", Component: AnimeTab },
@@ -94,9 +114,11 @@ function AppContent() {
       </div>
 
       <div className="bg-white flex-1 flex flex-col pb-20">
-        <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin text-gray" size={24} /></div>}>
-          {SelectedComponent && <SelectedComponent />}
-        </Suspense>
+        <ErrorBoundary key={selectedKey}>
+          <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin text-gray" size={24} /></div>}>
+            {SelectedComponent && <SelectedComponent />}
+          </Suspense>
+        </ErrorBoundary>
       </div>
 
       <OfflineNotice />
