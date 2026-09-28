@@ -84,12 +84,18 @@ async function cacheFirstCover(request: Request): Promise<Response> {
   const response = await fetch(request.url, { mode: "cors", credentials: "omit" }).catch(() => null)
   if (!response) return fetch(request)
 
+  // Storing it is best-effort: a full disk rejects the put, and that can't be allowed to fail
+  // the image request the page is waiting on.
   if (response.ok) {
-    await cache.put(request, response.clone())
-    // keys() is insertion-ordered, so the front of the list is the oldest cover.
-    const keys = await cache.keys()
-    if (keys.length > COVER_CACHE_LIMIT) {
-      await Promise.all(keys.slice(0, keys.length - COVER_CACHE_LIMIT).map((key) => cache.delete(key)))
+    try {
+      await cache.put(request, response.clone())
+      // keys() is insertion-ordered, so the front of the list is the oldest cover.
+      const keys = await cache.keys()
+      if (keys.length > COVER_CACHE_LIMIT) {
+        await Promise.all(keys.slice(0, keys.length - COVER_CACHE_LIMIT).map((key) => cache.delete(key)))
+      }
+    } catch {
+      // Left uncached; the next launch asks the network again.
     }
   }
   return response
